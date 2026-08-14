@@ -1,0 +1,28 @@
+# Reproducibility.
+#
+# Two things in this repository depend on bytes not changing between one
+# platform and another:
+#
+#   * the SHA-256 hashes in vendor/README.md, which tools/vendor.mjs --verify
+#     checks and which CI runs before anything else — a checkout that rewrote
+#     line endings would fail every one of them;
+#   * index.html, which CI rebuilds and compares with `git diff --exit-code`
+#     to prove it was not left stale.
+#
+# So the vendored bytes and the built artefact are never touched, and
+# everything else is normalised to LF in the repository.
+
+* text=auto eol=lf
+
+# Never convert: these are either third-party artefacts we hash, or generated.
+vendor/**   -text
+index.html  -text
+
+# Binary by nature.
+*.pdf   binary
+*.xlsx  binary
+*.xls   binary
+*.gz    binary
+*.wasm  binary
+*.zip   binary
+*.traineddata binary

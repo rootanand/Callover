@@ -1,0 +1,36 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      # The privacy band in §8.1a is a factual claim. If the vendored bytes
+      # are not the ones the manifest names, nothing else in this file means
+      # anything, so this runs first.
+      - name: vendor/ matches its pinned hashes
+        run: node tools/vendor.mjs --verify
+
+      - name: Test suite (TDD.md §10)
+        run: node tests/run.mjs
+
+      - name: Coverage gate (TDD.md §10.11)
+        run: node tools/coverage.mjs
+
+      # §9.3 — fails the build if index.html was not rebuilt after a change to
+      # src/, vendor/ or the shell. index.html is committed because a chamber
+      # must be able to download one file and open it (Decision D10).
+      - name: index.html is up to date
+        run: |
+          node tools/build.mjs
+          git diff --exit-code index.html
+
+      - name: Fixtures are reproducible
+        run: |
+          pip install reportlab openpyxl --quiet
+          python3 tools/build_corpus.py
+          git diff --exit-code fixtures/golden.json

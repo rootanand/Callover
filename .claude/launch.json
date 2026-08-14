@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "callover",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8901", "--bind", "127.0.0.1"],
+      "port": 8901,
+      "url": "http://127.0.0.1:8901"
+    }
+  ]
+}

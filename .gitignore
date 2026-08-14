@@ -1,0 +1,17 @@
+# Staging / handover archives — not part of the repository
+files.zip
+_extracted/
+
+# Real cause lists a developer fetches for the T6 regression (§10.6).
+# They are large, and redistributing a court's own document is not our call.
+fixtures/real/
+
+# Node — there is no npm install required to run Callover; this only guards
+# against a stray dependency tree from tooling experiments.
+node_modules/
+package-lock.json
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp

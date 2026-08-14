@@ -1,0 +1,161 @@
+{
+  "generated_from": "build_corpus.py + real HRCE documents",
+  "documents": {
+    "causelist": "fixtures/hrce/Causelistdated11_08_2026.pdf",
+    "adjournment": "fixtures/hrce/AdjournmentNoticeNo_16.pdf",
+    "extra_causelists": [
+      "Causelistdated04_08_2026.pdf",
+      "Causelistdated21_07_2026.pdf"
+    ]
+  },
+  "date": "2026-08-11",
+  "firm": [
+    "E. Ganesh",
+    "V. Chandrasekar",
+    "K. Sakthivel",
+    "A. Balaguru"
+  ],
+  "measured_from_real_files": {
+    "causelist_case_keys": 194,
+    "adjournment_case_keys": 268,
+    "keys_in_both_adjournment_wins": 109,
+    "note": "56% of the 11.08.2026 list was vacated by the notice dated 10.08.2026",
+    "e_ganesh_petitioner_column": 2,
+    "e_ganesh_respondent_column": 4,
+    "column_aware_advocate_strings": 68,
+    "flattened_advocate_strings_noisy": 119
+  },
+  "assertions": [
+    {
+      "id": "H-01",
+      "what": "R.P.66/2022 found via M/s.E.Ganesh in the RESPONDENT party cell",
+      "expect": "auto"
+    },
+    {
+      "id": "H-02",
+      "what": "R.P.541/2022 found via M/s.E.Ganesh in the PETITIONER party cell",
+      "expect": "auto"
+    },
+    {
+      "id": "H-03",
+      "what": "R.P.258/2022 found only by expanding 'R.P.Nos.243 to 261 and 262/2022'",
+      "expect": "auto"
+    },
+    {
+      "id": "H-04",
+      "what": "R.P.72/2023 found only by expanding 'R.P.48 to 96/ 2023'",
+      "expect": "auto"
+    },
+    {
+      "id": "H-05",
+      "what": "'throughThiru. E. Ganesh' (no space after through) parses correctly",
+      "expect": "auto"
+    },
+    {
+      "id": "H-06",
+      "what": "'Thiru E. Ganesh' honorific without M/s. parses correctly",
+      "expect": "auto"
+    },
+    {
+      "id": "H-07",
+      "what": "R.P.502/2023 records sideDetail 'R3 to R11'",
+      "expect": "sideDetail set"
+    },
+    {
+      "id": "H-08",
+      "what": "R.P.66/2022 appears in the ADJOURNED view, not the attendance list",
+      "expect": "adjourned 15.09.2026"
+    },
+    {
+      "id": "H-09",
+      "what": "R.P.541/2022 adjournment row 6 inherits the MERGED cell date",
+      "expect": "15.09.2026 not 18.08.2026"
+    },
+    {
+      "id": "H-10",
+      "what": "R.P.214/2023 adjournment row 8 carries no date token; merged cell spans rows 8-9",
+      "expect": "15.09.2026 not 10.11.2026"
+    },
+    {
+      "id": "H-11",
+      "what": "R.P.420/2025 present in the notice but absent from the cause list",
+      "expect": "adjourned, identified from register alone"
+    },
+    {
+      "id": "H-12",
+      "what": "R.P.192/2026 in register but not listed on 11.08",
+      "expect": "absent from all views"
+    },
+    {
+      "id": "H-13",
+      "what": "Appended 'Note :- ... stand reposted' table inside the cause list PDF is parsed as an adjournment section",
+      "expect": "second adjournment section detected"
+    },
+    {
+      "id": "H-14",
+      "what": "Temple name captured into extra and shown in evidence",
+      "expect": "'Dharmaligeshwarar Temple, Nanganallur'"
+    },
+    {
+      "id": "H-15",
+      "what": "No advocate string equals 'Temple', 'M.P.No' or 'of the JC' (column-bleed regression)",
+      "expect": "none"
+    },
+    {
+      "id": "H-16",
+      "what": "E.Ganesh found in the PETITIONER column (A.P.12/2025, Periyasamy matter)",
+      "expect": "auto"
+    },
+    {
+      "id": "H-17",
+      "what": "E.Ganesh found in the RESPONDENT column (R.P.66/2022, J.C/E.O)",
+      "expect": "auto"
+    },
+    {
+      "id": "H-18",
+      "what": "Both columns scanned on every row - no side is ever skipped",
+      "expect": "petitioner>=2 and respondent>=4 across the four lists"
+    },
+    {
+      "id": "H-19",
+      "what": "A respondent cell with several counsel yields one advocate per 'through', each keeping its respondent numbering",
+      "expect": "R.P.449/2024 -> N.Soundarrajan for R1,R2 and E.Ganesh for E.O"
+    },
+    {
+      "id": "H-20",
+      "what": "Side never filters the search - a register CounselFor of 'Petitioner' does not suppress a respondent-side hit",
+      "expect": "match retained, sideMismatch warning shown"
+    },
+    {
+      "id": "H-21",
+      "what": "Both party columns declared counsel-bearing under tribunal.hrce",
+      "expect": "role party+counsel on petitioner and respondent"
+    },
+    {
+      "id": "H-22",
+      "what": "E.Ganesh in R.P.541/2022 petitioner cell after 'through'",
+      "expect": "matchRole=counsel, full confidence, NOT unplaced"
+    },
+    {
+      "id": "H-23",
+      "what": "E.Ganesh in R.P.66/2022 respondent cell after 'through'",
+      "expect": "matchRole=counsel, full confidence, NOT unplaced"
+    },
+    {
+      "id": "H-24",
+      "what": "Party portion before the connector never yields matchRole=counsel",
+      "expect": "'M. Ganesan and AburvamGanesan through M/s. SVV Law Firm' -> party=Ganesan, counsel=SVV Law Firm"
+    },
+    {
+      "id": "H-25",
+      "what": "No HRCE advocate is ever classified unplaced when columns read cleanly",
+      "expect": "unplaced count = 0 on clean pages"
+    }
+  ],
+  "document_profile": "tribunal.hrce",
+  "counsel_bearing_columns": [
+    "petitioner",
+    "respondent"
+  ],
+  "note_on_columns": "HRCE has NO separate advocate column. The advocate is printed inside each party cell after a 'through' connector. Both party columns are counsel-bearing."
+}

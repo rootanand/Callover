@@ -1,0 +1,436 @@
+{
+  "generated_from": "build_corpus.py",
+  "causelist": "fixtures/causelist-synthetic-14082026.pdf",
+  "date": "2026-08-14",
+  "firm": [
+    "E. Ganesh",
+    "E. Srikanth",
+    "D. Lokeshwaran",
+    "T. Thamarai Selvan",
+    "M. Krishnamurthy",
+    "S. Lakshmi Narayanan"
+  ],
+  "total_planted": 31,
+  "expected_counts": {
+    "auto": 13,
+    "review": 9,
+    "weak": 4,
+    "none": 5
+  },
+  "items": [
+    {
+      "id": "P01",
+      "item": 1,
+      "case": "WA/2025/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "01",
+      "printed_counsel": [
+        "E.GANESH",
+        "E.SRIKANTH",
+        "D.LOKESHWARAN",
+        "T.THAMARAI SELVAN"
+      ],
+      "expect": "auto",
+      "firm_advocate": "E. Ganesh",
+      "why": "exact spelling, four firm advocates stacked (cluster signal)"
+    },
+    {
+      "id": "P02",
+      "item": 2,
+      "case": "WP/14523/2025",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "01",
+      "printed_counsel": [
+        "M/S.E.GANESH",
+        "R.PRABAKAR"
+      ],
+      "expect": "auto",
+      "firm_advocate": "E. Ganesh",
+      "why": "M/S. chambers prefix must be stripped"
+    },
+    {
+      "id": "P03",
+      "item": 3,
+      "case": "CRP/414/2023",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "02",
+      "printed_counsel": [
+        "K.BALU",
+        "M.R.ELAVARASAN",
+        "M/S.E.GANESH",
+        "R.PRABAKAR",
+        "E.SRIKANTH",
+        "FOR R13"
+      ],
+      "expect": "auto",
+      "firm_advocate": "E. Ganesh",
+      "why": "firm counsel below divider, FOR R13"
+    },
+    {
+      "id": "P04",
+      "item": 4,
+      "case": "CS/813/2016",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "02",
+      "printed_counsel": [
+        "M/S.T.S.R.VENKATARAMANA",
+        "E.GANESH"
+      ],
+      "expect": "auto",
+      "firm_advocate": "E. Ganesh",
+      "why": "second name in a chambers block"
+    },
+    {
+      "id": "P05",
+      "item": 5,
+      "case": "WMP/11451/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "03",
+      "printed_counsel": [
+        "GANESH E."
+      ],
+      "expect": "auto",
+      "firm_advocate": "E. Ganesh",
+      "why": "initial moved to the end"
+    },
+    {
+      "id": "P06",
+      "item": 6,
+      "case": "WP/9087/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "03",
+      "printed_counsel": [
+        "M.KRISHNAMOORTHI"
+      ],
+      "expect": "auto",
+      "firm_advocate": "M. Krishnamurthy",
+      "why": "Krishnamurthy -> Krishnamoorthi (OO/EE fold)"
+    },
+    {
+      "id": "P07",
+      "item": 7,
+      "case": "WP/9088/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "04",
+      "printed_counsel": [
+        "M.KIRUSHNAMURTHY"
+      ],
+      "expect": "review",
+      "firm_advocate": "M. Krishnamurthy",
+      "why": "epenthetic vowel inserted after K"
+    },
+    {
+      "id": "P08",
+      "item": 8,
+      "case": "OSA/44/2024",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "04",
+      "printed_counsel": [
+        "S.LAXMINARAYANAN"
+      ],
+      "expect": "review",
+      "firm_advocate": "S. Lakshmi Narayanan",
+      "why": "Lakshmi Narayanan -> Laxmi (KSH->X) + joined"
+    },
+    {
+      "id": "P09",
+      "item": 9,
+      "case": "WP/9090/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "05",
+      "printed_counsel": [
+        "T.THAMARAISELVAN"
+      ],
+      "expect": "auto",
+      "firm_advocate": "T. Thamarai Selvan",
+      "why": "Thamarai Selvan joined into one token"
+    },
+    {
+      "id": "P10",
+      "item": 10,
+      "case": "WP/9091/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "05",
+      "printed_counsel": [
+        "T.DHAMARAI SELVAN"
+      ],
+      "expect": "review",
+      "firm_advocate": "T. Thamarai Selvan",
+      "why": "TH -> DH transliteration drift"
+    },
+    {
+      "id": "P11",
+      "item": 11,
+      "case": "CMA/210/2025",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "06",
+      "printed_counsel": [
+        "D.LOKESWARAN"
+      ],
+      "expect": "auto",
+      "firm_advocate": "D. Lokeshwaran",
+      "why": "Lokeshwaran -> Lokeswaran (SH->S)"
+    },
+    {
+      "id": "P12",
+      "item": 12,
+      "case": "WP/9093/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "06",
+      "printed_counsel": [
+        "E.SREEKANTH"
+      ],
+      "expect": "auto",
+      "firm_advocate": "E. Srikanth",
+      "why": "Srikanth -> Sreekanth (EE fold)"
+    },
+    {
+      "id": "P13",
+      "item": 13,
+      "case": "WP/9094/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "07",
+      "printed_counsel": [
+        "GANESH"
+      ],
+      "expect": "review",
+      "firm_advocate": "E. Ganesh",
+      "why": "initial omitted entirely - cannot disambiguate"
+    },
+    {
+      "id": "P14",
+      "item": 14,
+      "case": "WP/9095/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "07",
+      "printed_counsel": [
+        "F.GANESH"
+      ],
+      "expect": "review",
+      "firm_advocate": "E. Ganesh",
+      "why": "E->F lookalike typo in initial"
+    },
+    {
+      "id": "P15",
+      "item": 15,
+      "case": "WP/9096/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "08",
+      "printed_counsel": [
+        "R.GANESH"
+      ],
+      "expect": "review",
+      "firm_advocate": "E. Ganesh",
+      "why": "E->R keyboard-adjacent initial"
+    },
+    {
+      "id": "P16",
+      "item": 16,
+      "case": "WP/9097/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "08",
+      "printed_counsel": [
+        "E.S.GANESH"
+      ],
+      "expect": "review",
+      "firm_advocate": "E. Ganesh",
+      "why": "extra initial inserted"
+    },
+    {
+      "id": "P17",
+      "item": 17,
+      "case": "WP/9098/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "09",
+      "printed_counsel": [
+        "SELVAN T.THAMARAI"
+      ],
+      "expect": "review",
+      "firm_advocate": "T. Thamarai Selvan",
+      "why": "name parts reordered"
+    },
+    {
+      "id": "D01",
+      "item": 18,
+      "case": "WP/8001/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "09",
+      "printed_counsel": [
+        "J.GANESH"
+      ],
+      "expect": "weak",
+      "firm_advocate": null,
+      "why": "different advocate, J not near E"
+    },
+    {
+      "id": "D02",
+      "item": 19,
+      "case": "WP/8002/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "10",
+      "printed_counsel": [
+        "M.GANESH"
+      ],
+      "expect": "weak",
+      "firm_advocate": null,
+      "why": "different advocate, M not near E"
+    },
+    {
+      "id": "D03",
+      "item": 20,
+      "case": "WP/8003/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "10",
+      "printed_counsel": [
+        "R.GANESHKUMAR"
+      ],
+      "expect": "weak",
+      "firm_advocate": null,
+      "why": "longer surname - Ganeshkumar != Ganesh"
+    },
+    {
+      "id": "D04",
+      "item": 21,
+      "case": "WP/8004/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "11",
+      "printed_counsel": [
+        "S.GANESH BABU"
+      ],
+      "expect": "weak",
+      "firm_advocate": null,
+      "why": "compound surname - different person"
+    },
+    {
+      "id": "D05",
+      "item": 22,
+      "case": "WP/8005/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "11",
+      "printed_counsel": [
+        "S.VIGNESH"
+      ],
+      "expect": "none",
+      "firm_advocate": null,
+      "why": "vowel-strip trap: VIGNESH vs GANESH must not match"
+    },
+    {
+      "id": "D06",
+      "item": 23,
+      "case": "WP/8006/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "12",
+      "printed_counsel": [
+        "N.SIVAKUMAR"
+      ],
+      "expect": "none",
+      "firm_advocate": null,
+      "why": "common name, unrelated to the firm"
+    },
+    {
+      "id": "D07",
+      "item": 24,
+      "case": "WP/8007/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "12",
+      "printed_counsel": [
+        "K.SHIVAKUMAR"
+      ],
+      "expect": "none",
+      "firm_advocate": null,
+      "why": "common name variant, still unrelated"
+    },
+    {
+      "id": "D08",
+      "item": 25,
+      "case": "WP/8008/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "13",
+      "printed_counsel": [
+        "E.SRIKANTHAN"
+      ],
+      "expect": "review",
+      "firm_advocate": "E. Srikanth",
+      "why": "near-miss on a firm junior - genuinely ambiguous"
+    },
+    {
+      "id": "D09",
+      "item": 26,
+      "case": "WP/8009/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "13",
+      "printed_counsel": [
+        "M.KRISHNAN"
+      ],
+      "expect": "none",
+      "firm_advocate": null,
+      "why": "Krishnan != Krishnamurthy"
+    },
+    {
+      "id": "D10",
+      "item": 27,
+      "case": "WP/8010/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "14",
+      "printed_counsel": [
+        "T.SELVAN"
+      ],
+      "expect": "none",
+      "firm_advocate": null,
+      "why": "Selvan alone != Thamarai Selvan"
+    },
+    {
+      "id": "P18",
+      "item": 28,
+      "case": "CC/212/2026",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "14",
+      "printed_counsel": [
+        "PARTY IN PERSON"
+      ],
+      "expect": "auto",
+      "firm_advocate": null,
+      "why": "matched on case number from the firm's register, not the name"
+    },
+    {
+      "id": "P19",
+      "item": 29,
+      "case": "OS/88/2024",
+      "court": "HIGH COURT OF JUDICATURE AT MADRAS",
+      "hall": "15",
+      "printed_counsel": [
+        "ADVOCATE NAME ILLEGIBLE"
+      ],
+      "expect": "auto",
+      "firm_advocate": null,
+      "why": "case number match rescues an unreadable counsel line"
+    },
+    {
+      "id": "P20",
+      "item": 4,
+      "case": "CC/213/2026",
+      "court": "CONSUMER DISPUTES REDRESSAL COMMISSION, CHENNAI (SOUTH)",
+      "hall": "1",
+      "printed_counsel": [
+        "COMPLAINANT IN PERSON"
+      ],
+      "expect": "auto",
+      "firm_advocate": null,
+      "why": "tribunal layout; party name is also the firm advocate's name"
+    },
+    {
+      "id": "P21",
+      "item": 12,
+      "case": "OS/455/2022",
+      "court": "PRINCIPAL DISTRICT COURT, CHENGALPATTU",
+      "hall": "2",
+      "printed_counsel": [
+        "E.GANESH",
+        "T.THAMARAI SELVAN"
+      ],
+      "expect": "auto",
+      "firm_advocate": "E. Ganesh",
+      "why": "district court layout, two firm advocates"
+    }
+  ]
+}
