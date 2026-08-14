@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>How to use Callover</title>
+<meta name="description" content="A walkthrough of Callover — finding your chamber's matters in a court cause list, in about five minutes a morning.">
+<!--
+  Like the application itself, this page loads nothing from anywhere. No fonts,
+  no scripts, no stylesheets, no images from a server. Open it on a train.
+-->
+<style>
+:root{
+  --cream:#F4F1E8; --ink:#23211E; --ink2:#4A4740; --muted:#6E6A62; --faint:#94908A;
+  --red:#8A2B2B; --red-t:#F5E9E6; --green:#2F6B4F; --green-t:#E6F0E9;
+  --amber:#9A6B10; --amber-t:#FAF0DA; --rule:#DDD8CA; --rule2:#EBE7DB;
+  --panel:#FFFDF8; --kraft:#B8874A;
+  --display:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","Segoe UI Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--body);
+  font-size:17px;line-height:1.62}
+h1,h2,h3,h4{font-family:var(--display);margin:0;line-height:1.18;font-weight:600}
+a{color:var(--red)}
+:focus-visible{outline:3px solid var(--kraft);outline-offset:2px}
+code,.mono{font-family:var(--mono);font-size:.92em}
+
+/* ---------- masthead ---------- */
+.masthead{background:var(--panel);border-bottom:2px solid var(--ink);padding:38px 22px 30px}
+.masthead .in{max-width:820px;margin:0 auto}
+.wordmark{font-family:var(--display);font-weight:700;letter-spacing:.05em;line-height:1;color:var(--ink)}
+.wordmark .big{font-size:34px} .wordmark .sm{font-size:24px}
+.masthead h1{font-size:38px;margin:22px 0 8px;letter-spacing:-.01em}
+.masthead p{font-size:19px;color:var(--muted);margin:0;max-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--green);
+  background:var(--green-t);border:1px solid #C9DED2;border-radius:12px;padding:3px 11px;margin-top:16px}
+
+.wrap{max-width:820px;margin:0 auto;padding:0 22px 70px}
+
+/* ---------- contents ---------- */
+.toc{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:20px 24px;margin:34px 0}
+.toc h2{font-size:15px;font-family:var(--mono);font-weight:500;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.toc ol{margin:0;padding-left:22px;columns:2;column-gap:34px}
+@media(max-width:620px){.toc ol{columns:1}}
+.toc li{margin:5px 0;break-inside:avoid}
+.toc a{text-decoration:none;color:var(--ink2)}
+.toc a:hover{color:var(--red);text-decoration:underline}
+
+/* ---------- sections ---------- */
+section{margin:52px 0 0;scroll-margin-top:20px}
+section > h2{font-size:28px;border-top:2px solid var(--ink);padding-top:18px;margin-bottom:6px}
+section > h2 .n{font-family:var(--mono);font-size:15px;color:var(--faint);margin-right:12px;font-weight:400}
+h3{font-size:20px;margin:30px 0 6px}
+h4{font-size:17px;margin:22px 0 4px}
+p{margin:12px 0}
+.lede{font-size:19px;color:var(--ink2)}
+ul,ol{padding-left:24px} li{margin:7px 0}
+
+/* ---------- devices ---------- */
+.note{border-left:3px solid var(--green);background:var(--green-t);padding:14px 18px;
+  border-radius:0 3px 3px 0;margin:20px 0;font-size:16px;color:#254F3C}
+.note b{color:#1D3E2F}
+.warn{border-left:3px solid var(--amber);background:var(--amber-t);padding:14px 18px;
+  border-radius:0 3px 3px 0;margin:20px 0;font-size:16px;color:#5C4207}
+.warn b{color:#3F2D05}
+.stop{border-left:3px solid var(--red);background:var(--red-t);padding:14px 18px;
+  border-radius:0 3px 3px 0;margin:20px 0;font-size:16px;color:#6B2020}
+.stop b{color:#4A1414}
+.aside{border:1px dashed var(--rule);border-radius:3px;padding:14px 18px;margin:20px 0;
+  font-size:15.5px;color:var(--muted);background:var(--panel)}
+.aside b{color:var(--ink2)}
+
+kbd{font-family:var(--mono);font-size:13px;background:var(--panel);border:1px solid var(--rule);
+  border-bottom-width:2px;border-radius:3px;padding:2px 7px;color:var(--ink)}
+
+table{width:100%;border-collapse:collapse;font-size:16px;margin:18px 0}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;padding:0 12px 8px 0;border-bottom:1.5px solid var(--ink)}
+td{padding:10px 12px 10px 0;border-bottom:1px solid var(--rule2);vertical-align:top;color:var(--ink2)}
+td:first-child{color:var(--ink)}
+td strong{color:var(--ink)}
+
+/* ---------- mock screens ---------- */
+.screen{border:1px solid var(--rule);border-radius:4px;background:var(--panel);margin:22px 0;
+  overflow:hidden;box-shadow:0 1px 0 rgba(35,33,30,.05)}
+.screen .cap{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);background:#FAF7EF;border-bottom:1px solid var(--rule2);padding:8px 16px}
+.screen .body{padding:16px}
+.screen.plain{border-style:dashed}
+
+.sbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;
+  border-bottom:1px solid var(--rule2);background:var(--panel)}
+.sbar .mk{font-family:var(--display);font-weight:700;letter-spacing:.05em;font-size:19px}
+.sbar .sp{flex:1}
+.sbar .off{font-family:var(--mono);font-size:10.5px;color:var(--green);background:var(--green-t);
+  border:1px solid #C9DED2;border-radius:12px;padding:3px 10px;white-space:nowrap}
+.sbar .dt{font-family:var(--mono);font-size:12.5px;border:1px solid var(--rule);border-radius:3px;padding:5px 10px}
+.sbar .go{background:var(--red);color:#F4F1E8;border-radius:3px;padding:6px 16px;font-size:13.5px;font-weight:600}
+
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:16px}
+@media(max-width:640px){.cards{grid-template-columns:repeat(2,1fr)}}
+.kpi{border:1px solid var(--rule);border-radius:3px;padding:11px 12px;background:var(--panel)}
+.kpi .v{font-family:var(--display);font-size:26px;font-weight:700;line-height:1}
+.kpi .l{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.35}
+.kpi.a{border-left:4px solid var(--green)} .kpi.a .v{color:var(--green)}
+.kpi.r{border-left:4px solid var(--amber)} .kpi.r .v{color:var(--amber)}
+.kpi.w{border-left:4px solid var(--faint)} .kpi.w .v{color:var(--muted)}
+.kpi.j{border-left:4px solid var(--ink)}   .kpi.j .v{color:var(--ink)}
+.kpi.f{border-left:4px solid var(--red)}   .kpi.f .v{color:var(--red)}
+
+/* a confirm card, rendered as the app renders it */
+.cc{border:1.5px solid var(--amber);border-radius:3px;background:var(--panel);overflow:hidden;margin:0}
+.cc .q{padding:14px 18px 12px;font-size:18px;font-family:var(--display);font-weight:600;
+  border-bottom:1px solid var(--rule2)}
+.cc .q code{background:var(--amber-t);padding:2px 7px;border-radius:3px;font-size:16px}
+.cc .dec{background:var(--green);color:#fff;padding:11px 18px;font-size:15px}
+.cc .dec b{font-family:var(--mono)}
+.cc .dec .s{display:block;font-size:13px;opacity:.9;margin-top:2px}
+.cc table{margin:0;font-size:14.5px}
+.cc th{padding:10px 14px 7px;background:#FAF7EF;border-bottom:1.5px solid var(--ink);font-size:9.5px}
+.cc td{padding:9px 14px;border-bottom:1px solid var(--rule2)}
+.cc tr.hero td{background:var(--green-t)}
+.cc .m{font-family:var(--mono);font-size:13px}
+.cc .nt{display:block;font-size:13px;color:var(--muted);font-style:italic;margin-top:4px}
+.vd{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;padding:3px 8px;border-radius:11px;white-space:nowrap}
+.vd.ag{background:var(--green-t);color:var(--green)}
+.vd.df{background:var(--amber-t);color:var(--amber)}
+.vd.ab{background:var(--rule2);color:var(--faint)}
+.cc .col{padding:11px 18px;background:#FAF7EF;border-bottom:1px solid var(--rule2);font-size:14.5px;color:var(--ink2)}
+.cc .ex{padding:12px 18px;border-bottom:1px solid var(--rule2)}
+.cc pre{font-family:var(--mono);font-size:11.5px;background:#F4F1E8;border:1px solid var(--rule);
+  border-radius:3px;padding:11px 13px;white-space:pre-wrap;line-height:1.65;margin:6px 0 0;color:var(--ink2)}
+.cc mark{background:#F0DCA4;color:var(--ink);padding:1px 3px;font-weight:600}
+.cc .ft{display:flex;align-items:center;gap:12px;padding:11px 18px;flex-wrap:wrap;background:#FAF7EF}
+.cc .prov{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+.cc .acts{margin-left:auto;display:flex;gap:8px}
+.cc .yes{background:var(--green);color:#fff;border-radius:3px;padding:6px 13px;font-size:13px;font-weight:600}
+.cc .no{background:var(--panel);border:1.5px solid var(--rule);color:var(--ink2);border-radius:3px;padding:6px 13px;font-size:13px}
+
+/* annotation callouts beside a mock */
+.annot{display:grid;grid-template-columns:34px 1fr;gap:12px;margin:10px 0;align-items:start}
+.annot .num{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--cream);
+  font-family:var(--mono);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.annot p{margin:2px 0;font-size:15.5px}
+
+.row{display:grid;grid-template-columns:56px 1fr auto;gap:14px;padding:11px 16px;
+  border-bottom:1px solid var(--rule2);align-items:start}
+.row:last-child{border-bottom:none}
+.row .it{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+.row .it b{display:block;font-size:16px;color:var(--ink)}
+.row .cn{font-family:var(--mono);font-size:13.5px;font-weight:600}
+.row .tt{font-size:14px;color:var(--ink2);line-height:1.4}
+.row .lo{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+.tier{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;padding:3px 8px;border-radius:11px;white-space:nowrap}
+.tier.a{background:var(--green-t);color:var(--green)}
+.tier.r{background:var(--amber-t);color:var(--amber)}
+
+.steps{counter-reset:s;padding:0;list-style:none;margin:24px 0}
+.steps > li{counter-increment:s;position:relative;padding-left:52px;margin:26px 0}
+.steps > li:before{content:counter(s);position:absolute;left:0;top:-2px;width:34px;height:34px;
+  border-radius:50%;background:var(--red);color:#fff;font-family:var(--mono);font-size:15px;
+  font-weight:600;display:flex;align-items:center;justify-content:center}
+.steps h3{margin-top:0}
+
+.foot{background:var(--ink);color:#B5B0A6;padding:40px 22px 34px;margin-top:66px;text-align:center}
+.foot .in{max-width:820px;margin:0 auto}
+.foot a{color:#B5B0A6}
+.foot .pw{font-family:var(--body);font-size:11.5px;letter-spacing:.18em;color:#7E7A72;margin-bottom:10px}
+.foot .fb{font-family:var(--display);color:var(--cream);letter-spacing:.09em;font-size:22px}
+.foot .lg{border-top:1px solid #3A3733;margin-top:26px;padding-top:16px;font-size:13px;color:#6E6A62}
+
+@media print{
+  .toc,.foot{display:none}
+  body{background:#fff;font-size:11pt}
+  section,.screen,.cc{break-inside:avoid}
+  section > h2{break-after:avoid}
+}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="in">
+    <div class="wordmark"><span class="big">C</span><span class="sm">ALLOVER</span></div>
+    <h1>How to use it</h1>
+    <p class="lede">Finding your chamber's matters in today's cause list, in about five minutes
+      a morning — including the ones the registry has spelt wrong.</p>
+    <span class="pill">● NOTHING LEAVES THIS DEVICE</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<div class="toc">
+  <h2>On this page</h2>
+  <ol>
+    <li><a href="#what">What it does</a></li>
+    <li><a href="#need">What you need</a></li>
+    <li><a href="#open">Opening it</a></li>
+    <li><a href="#one">Step 1 — your advocates</a></li>
+    <li><a href="#two">Step 2 — your case register</a></li>
+    <li><a href="#three">Step 3 — the cause lists</a></li>
+    <li><a href="#run">Running it</a></li>
+    <li><a href="#adjourned">Adjourned — read this first</a></li>
+    <li><a href="#confirm">Answering the questions</a></li>
+    <li><a href="#views">The four views</a></li>
+    <li><a href="#weak">Weak matches</a></li>
+    <li><a href="#export">Taking it with you</a></li>
+    <li><a href="#remember">Remembering your chamber</a></li>
+    <li><a href="#privacy">Checking the privacy claim</a></li>
+    <li><a href="#wrong">When something looks wrong</a></li>
+    <li><a href="#words">A few words explained</a></li>
+  </ol>
+</div>
+
+<!-- ==================================================================== -->
+<section id="what">
+<h2><span class="n">01</span>What it does</h2>
+
+<p class="lede">A matter listed under <code>R.GANESAN</code> when your register says
+<strong>E. Ganesh</strong> is invisible to a text search. Nobody appears. The order reads
+<em>"None appears for the petitioner."</em></p>
+
+<p>Callover reads today's cause list the way a very patient clerk would: it compares every
+name printed on it against your chamber's advocates, allowing for the ways a registry
+actually spells things — <em>Krishnamurthy</em> written as <em>Krishnamoorthi</em>,
+<em>Lakshmi</em> as <em>Laxmi</em>, a missing initial, a wrong one, two names run together,
+or a scanned page read badly. Then it tells you which matters are yours.</p>
+
+<p>It also does three things a search box cannot:</p>
+
+<ul>
+  <li>It expands printed ranges. <code>R.P.48 to 96/ 2023</code> is <strong>forty-nine
+    matters</strong>, not one, and if any of them is yours you will be told.</li>
+  <li>It reads adjournment notices and <strong>removes</strong> the matters that will not be
+    called, so you do not send a junior to an empty court.</li>
+  <li>When it is not sure, it asks — and puts everything it knows on the card so you can
+    answer in two seconds.</li>
+</ul>
+
+<div class="note">
+  <b>Nothing is ever thrown away.</b> A match it is unsure about becomes a question. A match
+  it thinks is unlikely is hidden behind a toggle, not deleted. Showing you a row you did not
+  need costs a glance; hiding one you did costs an appearance.
+</div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="need">
+<h2><span class="n">02</span>What you need</h2>
+
+<table>
+  <thead><tr><th style="width:22%">Thing</th><th style="width:18%">Required?</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Your advocates</strong></td><td>Yes</td>
+      <td>Just the names. Type them in, or upload a <code>.txt</code>, <code>.csv</code> or
+        Excel file. Enrolment numbers and roles are optional extras.</td></tr>
+    <tr><td><strong>Your case register</strong></td><td>Optional</td>
+      <td>Your existing case list as <code>.csv</code> or Excel. This is what turns most
+        questions into certainties — see step 2.</td></tr>
+    <tr><td><strong>Today's cause lists</strong></td><td>Yes</td>
+      <td>PDFs you download from the court. Any number, any court, mixed together.</td></tr>
+    <tr><td><strong>Adjournment notices</strong></td><td>Optional</td>
+      <td>Drop them in with the lists. Strongly recommended — see section 8.</td></tr>
+  </tbody>
+</table>
+
+<p>No account, no sign-in, no licence key, no installation.</p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="open">
+<h2><span class="n">03</span>Opening it</h2>
+
+<p>Double-click <code>index.html</code>. That is the whole thing — one file, and it opens in
+whatever browser you already have.</p>
+
+<div class="screen">
+  <div class="cap">The top of the page</div>
+  <div class="sbar">
+    <span class="mk">C<span style="font-size:15px">ALLOVER</span></span>
+    <span class="sp"></span>
+    <span class="off">● NOTHING LEAVES THIS DEVICE</span>
+    <span class="dt">📅 14 August 2026</span>
+    <span class="go">Run callover</span>
+  </div>
+  <div class="body" style="font-size:15px;color:var(--muted)">
+    Set the date to the day the list is for. It only labels your results and your exports —
+    it does not filter anything.
+  </div>
+</div>
+
+<div class="warn">
+  <b>One thing needs a little more.</b> If your cause list is a <em>scan</em> — a photograph
+  of a page rather than a document with real text in it — Callover has to picture-read it,
+  and browsers will not start that machinery from a file you opened straight from a folder.
+  Everything else works perfectly that way. If you have scanned lists, see
+  <a href="#wrong">section 15</a>.
+</div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="one">
+<h2><span class="n">04</span>Step 1 — your advocates</h2>
+
+<p>Type one name per line, or upload a file.</p>
+
+<div class="screen">
+  <div class="cap">Step 1</div>
+  <div class="body">
+    <pre style="font-family:var(--mono);font-size:14px;background:#FAF7EF;border:1px solid var(--rule);
+      border-radius:3px;padding:12px 14px;margin:0;color:var(--ink)">E. Ganesh
+E. Srikanth
+D. Lokeshwaran
+T. Thamarai Selvan
+M. Krishnamurthy
+S. Lakshmi Narayanan</pre>
+  </div>
+</div>
+
+<h3>Enter everyone in the chamber, not just the arguing counsel</h3>
+
+<p>This is the single most useful thing you can do, and it is worth understanding why.</p>
+
+<p>Chambers are printed together on a cause list. If two of your names appear on the same
+matter, that is powerful evidence in itself — so when the registry mangles one of them,
+the other rescues it. In the real Madras High Court list this was measured:
+<code>E.SRIKANTH</code> appears beside <code>E.GANESH</code> on two of his three matters.
+Your own roster becomes the thing that tells your <em>Ganesh</em> apart from the other ten
+on the page.</p>
+
+<div class="note">
+  <b>Write the names the way your firm writes them.</b> Not the way you think the court
+  might. Callover's whole job is to bridge the gap between the two — you do not need to
+  guess at the registry's spelling.
+</div>
+
+<h4>If you upload a file</h4>
+<p>Callover works out which column holds the names, even when the heading is
+<code>NAME OF THE ADVOCATE</code> or <code>Adv. Name</code> or nothing at all. It shows you
+what it decided before you run anything, so you can correct it.</p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="two">
+<h2><span class="n">05</span>Step 2 — your case register</h2>
+
+<p>This one is optional, and it changes everything.</p>
+
+<p>Your register is your existing case list: diary numbers, case numbers, cause titles,
+which side you are on, the next stage. Upload it as <code>.csv</code> or Excel, in whatever
+shape it already has — Callover reads the columns it recognises and keeps every other column
+untouched so your exports come back with your own data still in them.</p>
+
+<h3>What it buys you</h3>
+
+<table>
+  <thead><tr><th style="width:34%">Without a register</th><th>With one</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Every question comes down to <em>"does this name look like our advocate?"</em></td>
+      <td>Most questions answer themselves, because Callover recognises <strong>your own case
+        number</strong> on the list. You know your case numbers exactly; a name is only ever
+        an approximation.</td>
+    </tr>
+    <tr>
+      <td>A matter where the counsel line is unreadable is missed entirely.</td>
+      <td>It is still found — by its case number.</td>
+    </tr>
+    <tr>
+      <td>An adjournment notice, which carries no names at all, cannot be matched to you.</td>
+      <td>It can. See <a href="#adjourned">section 8</a>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <b>Registers go stale, and that failure is silent.</b> New matters are filed every week. A
+  six-week-old register quietly loses every recent filing, and the only symptom is fewer
+  matches — which looks exactly like a quiet day. So Callover shows the age of your register
+  permanently, warns you at fourteen days, warns you harder at forty-five, and carries that
+  warning into anything you export. It will never refuse to run on an old register. It will
+  just refuse to let you forget.
+</div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="three">
+<h2><span class="n">06</span>Step 3 — the cause lists</h2>
+
+<p>Drag the PDFs in, or click to choose them. Add as many as you like, from as many courts
+as you like, in one go.</p>
+
+<h3>Getting the PDFs</h3>
+<p>There is a panel of links to the court portals. They open the court's own page in a new
+tab; you solve the picture-code there, download the list, and drop it in.</p>
+
+<div class="aside">
+  <b>Callover never connects to a court itself, deliberately.</b> The portals are
+  captcha-gated, and a law firm's own software working around a government access control is
+  not a risk worth taking. You fetch; it reads.
+</div>
+
+<h3>Three things on each file row</h3>
+
+<div class="annot"><span class="num">1</span><p><strong>The kind of document.</strong>
+  Callover detects whether it is a High Court list, a tribunal list or an adjournment notice,
+  and shows you what it decided. You can override it. Only the reader you choose runs —
+  pointing a High Court reader at a tribunal list produces confident nonsense rather than
+  silence, which is far worse.</p></div>
+
+<div class="annot"><span class="num">2</span><p><strong>"I downloaded this from the official
+  court portal".</strong> Tick it if you did. It is recorded in your results and exports as
+  <em>marked official by you</em> — Callover cannot verify where a file came from and does
+  not pretend to.</p></div>
+
+<div class="annot"><span class="num">3</span><p><strong>Thorough reading</strong>, which is
+  on by default. Any page that does not read cleanly the first time gets read a second way.
+  It is slower on difficult files and it catches more. Leave it on unless you are in a
+  hurry.</p></div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="run">
+<h2><span class="n">07</span>Running it</h2>
+
+<p>Press <strong>Run callover</strong>. A normal list takes a second or two. You will see
+pages counted as they are read.</p>
+
+<div class="stop">
+  <b>If it is picture-reading, it will be slow — and you can always stop.</b> A dense scanned
+  page can take two minutes on its own. The progress panel tells you which page it is on and
+  how far along it is, so a long wait never looks like a crash. And
+  <strong>Stop and keep what has been read</strong> ends it immediately, keeps every page
+  already read, and tells you which ones it skipped. Half a list is worth more than none.
+</div>
+
+<h3>The summary strip</h3>
+
+<div class="screen">
+  <div class="cap">After a run — two HR&amp;CE lists and one adjournment notice</div>
+  <div class="cards">
+    <div class="kpi a"><div class="v">13</div><div class="l">Matched — your matters</div></div>
+    <div class="kpi r"><div class="v">2</div><div class="l">Need your confirmation</div></div>
+    <div class="kpi w"><div class="v">15</div><div class="l">Weak — hidden, retrievable</div></div>
+    <div class="kpi j"><div class="v">30</div><div class="l">Adjourned — not today</div></div>
+    <div class="kpi f"><div class="v">1</div><div class="l">Courts involved</div></div>
+  </div>
+</div>
+
+<table>
+  <thead><tr><th style="width:26%">Number</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Matched</strong></td><td>Callover is confident. These are yours.</td></tr>
+    <tr><td><strong>Need your confirmation</strong></td><td>It is unsure, and it is asking.
+      Answer these — it takes seconds each, and each answer is remembered for good.</td></tr>
+    <tr><td><strong>Weak</strong></td><td>Probably not yours, kept anyway, hidden behind a
+      toggle. Nothing is deleted.</td></tr>
+    <tr><td><strong>Adjourned</strong></td><td><strong>Not being heard today.</strong> These
+      are excluded from the matched count on purpose. Read the next section.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ==================================================================== -->
+<section id="adjourned">
+<h2><span class="n">08</span>Adjourned — read this first</h2>
+
+<p class="lede">If you drop in an adjournment notice along with the cause list, this section
+is the most valuable thing on the page.</p>
+
+<p>An adjournment notice carries case numbers and new dates and nothing else — no parties, no
+advocates, no cause titles. On its own it cannot tell you which rows are yours. Callover
+joins it to the cause list you loaded alongside it, and to your register, and recovers
+everything the notice leaves out:</p>
+
+<div class="screen plain">
+  <div class="cap">What the join produces</div>
+  <div class="body" style="font-family:var(--mono);font-size:13.5px;line-height:1.8;color:var(--ink2)">
+    notice&nbsp;&nbsp;&nbsp;&nbsp;: R.P.541/2022 &nbsp;→ reposted 15.09.2026<br>
+    cause list: R.P.541/2022 &nbsp;E.R. Kannan through M/s.E.Ganesh<br>
+    <span style="color:var(--ink)">result&nbsp;&nbsp;&nbsp;&nbsp;: <strong>Your matter R.P.541/2022 (E.R. Kannan) is NOT being<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;heard today. Reposted to 15 September 2026 at 3.00 pm.</strong></span>
+  </div>
+</div>
+
+<div class="stop">
+  <b>This is not a nicety.</b> On the sample files supplied with Callover, <strong>236 of the
+  240 matters</strong> on the 11 August list had been vacated by a notice issued the previous
+  evening. A tool that reads only the cause list would have told that chamber to prepare
+  bundles and send juniors for almost the whole day's board.
+</div>
+
+<p>Adjourned matters appear in their own red-edged section, never in the attendance list, and
+never in the "matched" count. Each row shows the new date and time.</p>
+
+<div class="warn">
+  <b>Watch for "date inferred — confirm".</b> Adjournment notices print their dates in ruled
+  table cells, often merged across several rows. Callover reads the actual drawn rectangles
+  to work out which rows a date belongs to, which is the only way to get it right. If a file
+  has no ruling at all, it will not guess silently — it marks the row and asks you. A guessed
+  hearing date is indistinguishable from a correct one right up until the day it is wrong.
+</div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="confirm">
+<h2><span class="n">09</span>Answering the questions</h2>
+
+<p>When Callover is unsure, it asks — and it puts everything it knows on the card, because
+asking <em>"is R.GANESH your E. Ganesh?"</em> with nothing else on screen forces you to
+decide on the weakest signal there is.</p>
+
+<div class="cc">
+  <div class="q">Is <code>R.GANESH</code> your <code>E. Ganesh</code>?</div>
+  <div class="dec">✓&nbsp; This case number is already in your register — diary <b>C234</b>.
+    <span class="s">The spelling of the name barely matters here. You are on record in this matter.</span></div>
+  <table>
+    <thead><tr><th>Field</th><th>In today's list</th><th>In your register</th><th></th></tr></thead>
+    <tbody>
+      <tr class="hero"><td class="m" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Case number</td>
+        <td><span class="m">CRP/414/2023</span></td>
+        <td><span class="m">CRP/414/2023</span> · diary C234</td>
+        <td><span class="vd ag">AGREE</span></td></tr>
+      <tr><td class="m" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Cause title</td>
+        <td>P.Renuka and 2 others — vs — Shahul Hameed and 12 others</td>
+        <td>P.Renuka and 2 others -Vs- Shahul Hameed and 12 others</td>
+        <td><span class="vd ag">AGREE</span></td></tr>
+      <tr><td class="m" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Advocate</td>
+        <td><span class="m"><span style="background:#F3D6D0;color:var(--red);padding:0 3px;border-radius:2px;font-weight:600">R</span>.GANESH</span>
+          <span class="nt">One initial differs. E and R sit next to each other on a keyboard — a likely slip by the registry typist.</span></td>
+        <td><span class="m">E. Ganesh</span></td>
+        <td><span class="vd df">DIFFERS</span></td></tr>
+      <tr><td class="m" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Side</td>
+        <td>Below the divider — respondent, marked <span class="m">FOR R13</span></td>
+        <td>Respondent 13</td>
+        <td><span class="vd ag">AGREE</span></td></tr>
+      <tr><td class="m" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Next stage</td>
+        <td style="color:var(--faint)">—</td><td>Arguments</td>
+        <td><span class="vd ab">CONTEXT</span></td></tr>
+    </tbody>
+  </table>
+  <div class="col">✓&nbsp; <strong style="font-family:var(--mono);font-size:13.5px">E.SRIKANTH</strong>
+    is also printed on this item — also one of yours.</div>
+  <div class="ex">
+    <span style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">Verbatim from the PDF</span>
+<pre>60 CRP/414/2023   P.RENUKA AND 2 OTHERS      K.BALU
+                  VS                         M.R. ELAVARASAN
+                  SHAHUL HAMEED AND 12 OTH.  ------------------
+                                             M/S.<mark>R.GANESH</mark>
+                                             <mark>E.SRIKANTH</mark>
+                                             FOR R13</pre>
+  </div>
+  <div class="ft">
+    <div class="prov"><span>MHC-causelist · page 233</span><span>Hall 02 · item 60</span>
+      <span>text layer</span><span>marked official by you</span></div>
+    <div class="acts"><span class="yes">Yes, this is ours</span><span class="no">No</span></div>
+  </div>
+</div>
+
+<h3>How to read that card</h3>
+
+<div class="annot"><span class="num">1</span><p><strong>The green bar settles it.</strong>
+  When the case number on the list is already in your register, the spelling of the name
+  hardly matters — you are on record in that matter. If you see the green bar, you can
+  usually answer without reading further.</p></div>
+
+<div class="annot"><span class="num">2</span><p><strong>The comparison table is the largest
+  thing on the card</strong> because that is what the decision rests on. Case number first,
+  because it is the most decisive; the advocate's name, the weakest signal, is
+  deliberately <em>not</em> at the top.</p></div>
+
+<div class="annot"><span class="num">3</span><p><strong>Rows are shown even when there is
+  nothing to compare.</strong> If you supplied no register, those rows still appear, marked
+  absent — so you can see what Callover <em>could not</em> check, not only what it
+  could.</p></div>
+
+<div class="annot"><span class="num">4</span><p><strong>The note is written in English</strong>,
+  not in arithmetic. You will never see a confidence score on a confirm card: a number invites
+  you to defer to it instead of reading the evidence in front of you.</p></div>
+
+<div class="annot"><span class="num">5</span><p><strong>The excerpt is verbatim from the
+  PDF</strong>, with the matched text highlighted, so you can check the reading yourself
+  without opening the file.</p></div>
+
+<h3>Answering quickly</h3>
+<p>Click <strong>Yes</strong> or <strong>No</strong>, or use the keyboard — which is much
+faster when there are several:</p>
+
+<table>
+  <thead><tr><th style="width:26%">Key</th><th>Does</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>Y</kbd></td><td>Yes, this matter is ours</td></tr>
+    <tr><td><kbd>N</kbd></td><td>No, it is not</td></tr>
+    <tr><td><kbd>↓</kbd> or <kbd>J</kbd></td><td>Next question</td></tr>
+    <tr><td><kbd>↑</kbd> or <kbd>K</kbd></td><td>Previous question</td></tr>
+    <tr><td><kbd>?</kbd></td><td>Show these keys</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>Every answer is remembered.</b> Once you have told Callover that <code>R.GANESH</code>
+  is your <strong>E. Ganesh</strong>, it will never ask again — tomorrow, or next month. If
+  you answer one wrongly, you can revoke it in <strong>Settings → Remembered spellings</strong>
+  and the question comes back.
+</div>
+
+<h3>Two special cards worth recognising</h3>
+
+<p><strong>"Your name is printed as a party to this matter, not as counsel on it."</strong>
+Sometimes a partner is a party in his own litigation. That is still something the chamber
+must attend to, so it is caught — but <em>you are appearing</em> and <em>you are being sued</em>
+are not the same thing, so it is never reported as an appearance.</p>
+
+<p><strong>"This page did not read cleanly."</strong> Your name was found on the page, but not
+where counsel names normally sit. It might be a listing that would otherwise have been missed;
+it might be your name inside a temple name or a party's father's name. Only you can tell, so
+Callover asks rather than guessing either way.</p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="views">
+<h2><span class="n">10</span>The four views</h2>
+
+<p>The same results, arranged four ways. Switch with the tabs.</p>
+
+<table>
+  <thead><tr><th style="width:24%">View</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>By advocate</strong></td><td>Telling each person what they have. A matter
+      with two of your advocates on it appears under <em>both</em>, marked
+      <em>also under…</em> — that duplication is deliberate, not a bug.</td></tr>
+    <tr><td><strong>By court</strong></td><td>Planning the morning. Grouped by court, then by
+      hall, in item order. This is the one to print.</td></tr>
+    <tr><td><strong>By case</strong></td><td>One row per matter, with everyone of yours on it
+      together.</td></tr>
+    <tr><td><strong>Everything</strong></td><td>The flat list, in the order it was read.</td></tr>
+  </tbody>
+</table>
+
+<div class="screen">
+  <div class="cap">By advocate</div>
+  <div style="background:#FAF7EF;border-bottom:1px solid var(--rule2);padding:11px 16px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+    <span style="font-family:var(--display);font-size:16px;font-weight:600">E. Ganesh</span>
+    <span style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">HR&amp;CE Commissioner · 11 Aug</span>
+    <span style="font-family:var(--mono);font-size:11px;background:var(--ink);color:var(--cream);border-radius:11px;padding:2px 9px;margin-left:auto">3 MATTERS</span>
+  </div>
+  <div class="row">
+    <div class="it">ITEM<b>06</b></div>
+    <div><div class="cn">R.P.541/2022</div>
+      <div class="tt">E.R. Kannan — vs — J.C. Chennai Division-2 · Dharmaligeshwarar Temple, Nanganallur</div>
+      <div class="lo">appearing · petitioner column · printed "through M/s.E.Ganesh" · diary H003</div></div>
+    <div><span class="tier a">MATCHED</span></div>
+  </div>
+  <div class="row">
+    <div class="it">ITEM<b>09</b></div>
+    <div><div class="cn">R.P.502/2023</div>
+      <div class="tt">V.Loganathan and 10 others — vs — JC Tiruppur · Mariamman Temple, Karuvalur</div>
+      <div class="lo">appearing · respondent column, <strong>for R3 to R11</strong> · diary H004</div></div>
+    <div><span class="tier a">MATCHED</span></div>
+  </div>
+  <div class="row">
+    <div class="it">ITEM<b>28</b></div>
+    <div><div class="cn">CC/212/2026</div>
+      <div class="tt">E.Ganesh &amp; anr — vs — The Managing Director</div>
+      <div class="lo"><strong style="color:var(--red)">you are a party, not counsel</strong> · Consumer Commission · diary B208</div></div>
+    <div><span class="tier a">MATCHED</span></div>
+  </div>
+</div>
+
+<p><strong>Click any row</strong> to open it. You get the same evidence table as a confirm
+card, plus the list of reasons it matched and the numeric confidence — which accepted rows
+have earned, and questions have not.</p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="weak">
+<h2><span class="n">11</span>Weak matches</h2>
+
+<p>Below the results there is a line like <em>"▸ Show 4 weak matches — unlikely, but nothing
+is ever discarded"</em>. Click it and they appear, in exactly the same evidence-first layout.</p>
+
+<p>These are the near-misses: <code>J.GANESH</code> when you are looking for
+<strong>E. Ganesh</strong>, or a fragment of a subject-matter line that happens to resemble a
+name. They are hidden by default so the questions that matter stay short — and kept, because
+occasionally one of them is yours.</p>
+
+<div class="aside">
+  <b>Worth a look on a quiet day.</b> If Callover reports far fewer matters than you expected,
+  open the weak list before concluding that nothing was listed.
+</div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="export">
+<h2><span class="n">12</span>Taking it with you</h2>
+
+<table>
+  <thead><tr><th style="width:22%">Format</th><th>What you get</th></tr></thead>
+  <tbody>
+    <tr><td><strong>PDF</strong></td><td>The one to circulate. Laid out as an attendance
+      sheet: what is <em>adjourned</em> first, in red, because those are the matters nobody
+      should be sent to; then the morning by court and hall; then by advocate; then the
+      questions still outstanding.</td></tr>
+    <tr><td><strong>Excel</strong></td><td>Every view as its own sheet — consolidated, by
+      advocate, by court, by case, adjourned — plus a run summary. Your own register columns
+      come back with it.</td></tr>
+    <tr><td><strong>CSV</strong></td><td>The consolidated table, for feeding into something
+      else.</td></tr>
+    <tr><td><strong>Print</strong></td><td>Prints the results cleanly, without the input
+      panels and buttons.</td></tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <b>Where the promise ends.</b> An exported file is an ordinary file on your machine. From
+  the moment you save it, its safety is in your hands, not Callover's — it carries client
+  names, case numbers and diary references. Treat it as you would the register itself.
+</div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="remember">
+<h2><span class="n">13</span>Remembering your chamber</h2>
+
+<p>Retyping six names every morning is the kind of friction that ends a habit in a fortnight.
+So Callover can remember — on this computer, in this browser, and nowhere else.</p>
+
+<p>Open <strong>Settings</strong> and tick <em>Remember this chamber on this device</em>. It
+stores your advocate list, your register, and the spellings you have confirmed. Next morning
+they are already there.</p>
+
+<table>
+  <thead><tr><th style="width:30%">In Settings</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Chamber name</strong></td><td>Shown at the top so a shared machine is
+      obvious.</td></tr>
+    <tr><td><strong>Export profile</strong></td><td>Writes one file you can carry on a stick
+      or hand to a junior. This is how you set up a second machine.</td></tr>
+    <tr><td><strong>Import profile</strong></td><td>Reads that file back.</td></tr>
+    <tr><td><strong>Remembered spellings</strong></td><td>Every question you have answered.
+      Revoke any one and it will be asked again.</td></tr>
+    <tr><td><strong>Keep a ledger</strong></td><td>Off by default, and separate. It remembers
+      case numbers and dates from previous runs so an adjournment notice can be identified
+      even with no cause list loaded. It is the only thing that accumulates data you did not
+      deliberately upload, which is why it has its own switch.</td></tr>
+    <tr><td><strong>Erase everything</strong></td><td>Removes all of it, from this browser,
+      immediately.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ==================================================================== -->
+<section id="privacy">
+<h2><span class="n">14</span>Checking the privacy claim</h2>
+
+<p>Your register carries client names, telephone numbers and fee entries. You are entitled to
+be sceptical about putting it into a web page. So the claim is made in a form you can test
+rather than a form you must trust:</p>
+
+<div class="note" style="font-size:18px">
+  <b>Turn off your internet and run it.</b> It works exactly the same — which is only possible
+  because nothing was ever being sent.
+</div>
+
+<p>That is the whole verification. It takes ten seconds and it beats any badge or policy page.
+Underneath, the reasons it holds:</p>
+
+<ul>
+  <li><strong>No upload.</strong> The browser opens your files from your own disk, the way a
+    document opens on a desk. No copy goes anywhere.</li>
+  <li><strong>No server.</strong> There is nothing at the other end to store anything.</li>
+  <li><strong>No account</strong>, no sign-in, no email address. Nobody — including the
+    authors — has any record that you used it.</li>
+  <li><strong>No AI service.</strong> The matching is fixed, published rules, not a model and
+    not an API. The same input always gives the same output, and you can be told exactly why
+    any match was made.</li>
+  <li><strong>Saved only if you ask.</strong> The chamber profile lives in this browser on
+    this computer, and Settings will erase it.</li>
+</ul>
+
+<p>The full statement sits at the foot of the app itself, below the export buttons.</p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="wrong">
+<h2><span class="n">15</span>When something looks wrong</h2>
+
+<table>
+  <thead><tr><th style="width:34%">What you see</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>"None of your advocates appear in these lists."</strong></td>
+      <td>Note the page count in the same message. If pages were read, the list genuinely does
+        not have you on it. Then open the weak matches to be sure.</td>
+    </tr>
+    <tr>
+      <td><strong>Far fewer matters than expected</strong></td>
+      <td>Check the age of your register — matters filed since you uploaded it cannot be
+        matched by case number. Check the Adjourned section: they may all have been vacated.</td>
+    </tr>
+    <tr>
+      <td><strong>"N pages could not be read cleanly"</strong></td>
+      <td>Click through to see them and their raw text. Anything found on such a page is asked
+        about rather than accepted. Often the file is a poor scan; try Thorough reading, or a
+        better copy from the portal.</td>
+    </tr>
+    <tr>
+      <td><strong>Advocates with odd names</strong> like a temple or a section number</td>
+      <td>The document type is probably wrong. Change it on the file row and run again —
+        that dropdown exists precisely for this.</td>
+    </tr>
+    <tr>
+      <td><strong>Scanned pages not being read</strong></td>
+      <td>Picture-reading needs the page served over <code>http</code> rather than opened from
+        a folder, and needs the <code>vendor</code> folder beside <code>index.html</code>.
+        Callover will name the pages it could not read rather than failing quietly. Ask
+        whoever set it up to host it, or run
+        <code>python -m http.server 8901</code> in the folder and open
+        <code>http://127.0.0.1:8901</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>A run that seems stuck</strong></td>
+      <td>Look at the progress panel — if it names a page being picture-read, it is working,
+        just slowly. Otherwise press <strong>Stop and keep what has been read</strong>.
+        Nothing already read is lost.</td>
+    </tr>
+    <tr>
+      <td><strong>A wrong "Yes" you want back</strong></td>
+      <td><strong>Settings → Remembered spellings → Revoke</strong>. The question returns on
+        the next run.</td>
+    </tr>
+    <tr>
+      <td><strong>A case-number range flagged as too wide</strong></td>
+      <td>Callover refuses to expand an implausibly large range in case it has misread a page
+        number, and tells you which one. Check that row by eye.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ==================================================================== -->
+<section id="words">
+<h2><span class="n">16</span>A few words explained</h2>
+
+<table>
+  <tbody>
+    <tr><td style="width:30%"><strong>Callover</strong></td><td>The court session where the
+      bench goes through the list, calls each matter and fixes what happens next — which is
+      what this does to your morning.</td></tr>
+    <tr><td><strong>Cause list</strong></td><td>The daily schedule of matters a court will
+      hear.</td></tr>
+    <tr><td><strong>Adjournment notice</strong></td><td>A separate document vacating listed
+      matters and giving them new dates.</td></tr>
+    <tr><td><strong>CNR</strong></td><td>Case Number Record — a sixteen-character nationally
+      unique case identifier.</td></tr>
+    <tr><td><strong>Coram</strong></td><td>The judge or judges sitting.</td></tr>
+    <tr><td><strong>The divider</strong></td><td>The row of dashes on a High Court list
+      separating petitioner's counsel above from respondent's counsel below. It is how
+      Callover works out which side you are on.</td></tr>
+    <tr><td><strong>Item number</strong></td><td>Your position on the day's board.</td></tr>
+    <tr><td><strong>"through"</strong></td><td>On tribunal lists the advocate is printed
+      inside the party's cell, after this word — <em>E.R. Kannan through M/s.E.Ganesh</em>.
+      Callover looks for it rather than for a counsel column, because many forums do not have
+      one.</td></tr>
+    <tr><td><strong>M/S.</strong></td><td>A chambers rather than an individual. Stripped
+      before names are compared.</td></tr>
+  </tbody>
+</table>
+
+<div class="note" style="margin-top:34px">
+  <b>That is everything.</b> Open <a href="index.html">index.html</a>, put your names in, drop
+  today's PDFs on it, and press Run.
+</div>
+</section>
+
+</div>
+
+<div class="foot">
+  <div class="in">
+    <div class="pw">POWERED BY</div>
+    <div class="fb">THE FORENSIC BRIEF</div>
+    <div class="lg">
+      Callover is free and open source · MIT ·
+      <a href="https://github.com/rootanand/Callover">Source on GitHub</a><br>
+      Runs entirely in your browser · no upload · no account · no server
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

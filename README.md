@@ -1,38 +1,22 @@
 # Callover
 
-**Find your matters in today's cause list — before the day starts.**
+**Find your chamber's matters in today's cause list — before the day starts.**
 
 A *callover* is the court session where the bench goes through the list, calls each
 matter and fixes what happens next. This tool does the same to today's list on your
 behalf, and tells you which ones are yours.
 
-Open [`index.html`](index.html). That is the whole application.
+### → **[How to use it](How%20to%20use.html)** — start here if you are going to use it
 
-## Nothing you open leaves your device
-
-Your case register carries client names, phone numbers and fee entries. Callover reads
-it inside your browser and sends it nowhere — because there is nowhere for it to be sent.
-
-- **No upload.** Files are opened by the browser itself. No copy is transmitted.
-- **No account.** No sign-in, no email, no licence key. Nobody has any record you used it.
-- **No server.** There is nothing at the other end to store anything.
-
-**Don't take our word for it — disconnect from the internet and run it.** It works
-exactly the same, which is only possible because nothing was ever being sent.
-
-No AI service is involved either: the matching is fixed, published rules, so identical
-input always gives identical output.
-
-Every third-party byte the page runs is committed in [`vendor/`](vendor/) at a pinned
-version with a recorded SHA-256, and `node tools/vendor.mjs --verify` checks them.
-Test **T10** fails the build if a single external reference appears in `index.html`.
+Open [`index.html`](index.html). That is the whole application: one file, no installer,
+no account, no server. Double-clicking it works.
 
 ---
 
-## The problem, in one number
+## A matter listed under `R.GANESAN` when your register says `E. Ganesh`
 
-A matter listed under `R.GANESAN` when your register says `E. Ganesh` is invisible to a
-text search. Nobody appears. The order reads *"None appears for the petitioner."*
+…is invisible to a text search. Nobody appears. The order reads *"None appears for the
+petitioner."*
 
 Searching a real 642-page Madras High Court cause list for `E. Ganesh`:
 
@@ -43,11 +27,11 @@ Searching a real 642-page Madras High Court cause list for `E. Ganesh`:
 
 Nothing is discarded — weak candidates stay retrievable behind a toggle.
 
-## What it survives
+### What it survives
 
 - Tamil transliteration drift — *Krishnamurthy / Krishnamoorthi*, *Lakshmi / Laxmi*
-- Wrong, missing, extra or transposed initials
-- Names joined or split — *Thamarai Selvan / Thamaraiselvan*
+- Wrong, missing, extra, reordered or transposed initials
+- Names joined or split — *Thamarai Selvan / Thamaraiselvan*, *Selvan T.Thamarai*
 - Chambers prefixes — `M/S.E.GANESH`
 - OCR noise on scanned lists — `E.GANE5AN`
 - Case-number ranges — `R.P.48 to 96/2023` is **forty-nine matters**, not one
@@ -56,7 +40,7 @@ Nothing is discarded — weak candidates stay retrievable behind a toggle.
 - Any court layout: High Court, district, tribunal — and a forum nobody has written a
   profile for, because counsel-bearing columns are discovered from content
 
-## What it will tell you that a cause list alone will not
+### What a cause list alone will not tell you
 
 An adjournment notice carries case numbers and new dates and nothing else — no parties,
 no advocates. Callover joins it to the cause list in the same session and to your
@@ -72,20 +56,26 @@ sends juniors to matters that will not be called. See
 
 ---
 
-## Using it
+## Nothing you open leaves your device
 
-1. Open `index.html`. Double-clicking it works; so does hosting it.
-2. Type or upload your advocates. **Enter everyone in the chamber**, not just the
-   arguing counsel — two of your names on one matter rescues a match when one is
-   misspelt.
-3. Optionally add your case register. Without it every confirmation rests on the name
-   alone; with it, most questions answer themselves.
-4. Drop today's cause list PDFs in. Use the portal links to fetch them — Callover never
-   connects to a court itself.
-5. Run. Answer the confirm cards with `Y` and `N`.
-6. Export as Excel, PDF, CSV, or print.
+Your case register carries client names, phone numbers and fee entries. Callover reads
+it inside your browser and sends it nowhere — because there is nowhere for it to be sent.
 
-### Two things worth knowing
+- **No upload.** Files are opened by the browser itself. No copy is transmitted.
+- **No account.** No sign-in, no email, no licence key. Nobody has any record you used it.
+- **No server.** There is nothing at the other end to store anything.
+- **No AI service.** The matching is fixed, published rules, so identical input always
+  gives identical output and any match can be explained.
+
+**Don't take our word for it — disconnect from the internet and run it.** It works
+exactly the same, which is only possible because nothing was ever being sent.
+
+Every third-party byte the page runs is committed in [`vendor/`](vendor/) at a pinned
+version with a recorded SHA-256, and `node tools/vendor.mjs --verify` checks them.
+Test **T10** fails the build if a single external reference appears in `index.html` or in
+the tutorial.
+
+### Two limits, stated plainly
 
 **Reading scanned pages needs the page served over `http`.** The OCR engine is a Web
 Worker plus WebAssembly, and a browser will not start either from a bare `file://`
@@ -94,21 +84,16 @@ from a double-clicked `index.html` with no folder beside it. When a page has no 
 layer and OCR cannot start, Callover names the page and says results may be incomplete;
 it never fails quietly.
 
+```bash
+python -m http.server 8901
+```
+
 **Picture-reading is slow, and you can always stop.** A dense A4 page takes upwards of
 two minutes, so the progress panel says which page is being read and how far along it
 is, and **Stop and keep what has been read** ends the run at once, keeps everything read
 so far, and states which pages were skipped. Nobody should be trapped watching a bar
 that is not moving — and a browser freezes timers in a tab you have left, so the escape
 is a button, not a timeout.
-
-To serve it locally:
-
-```bash
-python -m http.server 8901
-```
-
-**OCR also needs `vendor/` next to `index.html`.** Per TDD §2.1 the engine is
-lazy-loaded on first need only, so a text-only run never pays its eleven megabytes.
 
 ---
 
@@ -118,7 +103,8 @@ lazy-loaded on first need only, so a text-only run never pays its eleven megabyt
 |---|---|
 | [`TDD.md`](TDD.md) | Full technical design and test-suite spec. The source of truth. |
 | [`docs/measurements.md`](docs/measurements.md) | Every figure re-measured from the supplied files, and the four places reality differed from the spec. **Read this before changing the engine.** |
-| [`docs/ui-design.html`](docs/ui-design.html) | The rendered UI mock. A reference, not the app. |
+| [`How to use.html`](How%20to%20use.html) | The user tutorial. Self-contained, loads nothing. |
+| [`docs/ui-design.html`](docs/ui-design.html) | The original rendered UI mock. A reference, not the app. |
 | `src/NN-*.js` | The application, in load order. Concatenated into `index.html` by the build. |
 | `src/engine-reference.js`, `src/ranges-reference.js` | The tested reference engines the port came from. Not shipped; kept as provenance and as the fixtures for the differential test **T0**. |
 | `vendor/` | Every third-party byte, pinned and hashed. See [`vendor/README.md`](vendor/README.md). |
@@ -134,13 +120,17 @@ node tools/coverage.mjs        # the §10.11 coverage gate
 node tools/vendor.mjs --verify # check vendor/ against its pinned hashes
 ```
 
-The suite is **191 assertions, no framework, nothing to install**. Eleven are skipped
+The suite is **205 assertions, no framework, nothing to install**. Eleven are skipped
 and each says why: six are **T6**, the real-data regression, which needs a real cause
 list you fetch yourself into `fixtures/real/` (§10.6 — a court's own document is not
 ours to redistribute); five need a browser for Worker, WebAssembly or canvas.
 
 Engine coverage is gated at 90% over `src/10-` … `src/60-`. `50-extract.js` sits lower
 than its neighbours because the OCR block only runs in a browser.
+
+The port is identical to `src/engine-reference.js` except for one deliberate change —
+the order guard in §4.4 — and **T0 proves that divergence is the only one and that it is
+monotone**: no score falls, no tier falls, and same-order names are untouched.
 
 ---
 

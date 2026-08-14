@@ -1027,6 +1027,38 @@ group('T10  the privacy band is a factual claim');
       'no external stylesheet, no @import, no web-font request — fonts are system stacks');
   }
 
+  /* Every page shipped alongside the app is held to the same standard. A
+     tutorial that pulled in a web font would undermine the claim it explains. */
+  {
+    const shipped = ['How to use.html'];
+    const bad = [];
+    for (const f of shipped) {
+      const p = join(ROOT, f);
+      if (!existsSync(p)) { bad.push(`${f} is missing`); continue; }
+      const src = readFileSync(p, 'utf8');
+      const refs = [];
+      const re = /\b(?:src|href|action|poster)\s*=\s*["']([^"'#][^"']*)["']/gi;
+      let m;
+      while ((m = re.exec(src)) !== null) refs.push(m[1]);
+      for (const u of refs)
+        if (/^https?:/i.test(u) && !ALLOWED.some(a => u.startsWith(a))) bad.push(`${f}: ${u}`);
+      if (/<link[^>]+stylesheet/i.test(src)) bad.push(`${f}: external stylesheet`);
+      if (/@import/i.test(src)) bad.push(`${f}: @import`);
+      if (/<script[^>]+src=/i.test(src)) bad.push(`${f}: external script`);
+      if (/fonts\.(googleapis|gstatic)/i.test(src)) bad.push(`${f}: web font`);
+    }
+    t('T10-10', bad.length === 0,
+      `${shipped.length} companion page(s) load nothing from anywhere` +
+      (bad.length ? ` — ${bad.join('; ')}` : ''));
+
+    const tut = existsSync(join(ROOT, 'How to use.html'))
+      ? readFileSync(join(ROOT, 'How to use.html'), 'utf8') : '';
+    const banned = CO.BANNED_WORDS.filter(w => tut.toLowerCase().includes(w.toLowerCase()));
+    t('T10-11', tut.includes('index.html') && banned.length === 0,
+      'the tutorial links back to the app and uses none of the banned unfalsifiable words' +
+      (banned.length ? ` — ${banned.join(', ')}` : ''));
+  }
+
   /* T10-03 — the full pipeline with the network stubbed to throw. */
   {
     const realFetch = globalThis.fetch;
