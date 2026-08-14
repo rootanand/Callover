@@ -6,7 +6,7 @@ A *callover* is the court session where the bench goes through the list, calls e
 matter and fixes what happens next. This tool does the same to today's list on your
 behalf, and tells you which ones are yours.
 
-### → **[How to use it](How%20to%20use.html)** — start here if you are going to use it
+### → **[How to use it](how-to-use.html)** — start here if you are going to use it
 
 Open [`index.html`](index.html). That is the whole application: one file, no installer,
 no account, no server. Double-clicking it works.
@@ -103,7 +103,7 @@ is a button, not a timeout.
 |---|---|
 | [`TDD.md`](TDD.md) | Full technical design and test-suite spec. The source of truth. |
 | [`docs/measurements.md`](docs/measurements.md) | Every figure re-measured from the supplied files, and the four places reality differed from the spec. **Read this before changing the engine.** |
-| [`How to use.html`](How%20to%20use.html) | The user tutorial. Self-contained, loads nothing. |
+| [`how-to-use.html`](how-to-use.html) | The user tutorial. Self-contained, loads nothing. |
 | [`docs/ui-design.html`](docs/ui-design.html) | The original rendered UI mock. A reference, not the app. |
 | `src/NN-*.js` | The application, in load order. Concatenated into `index.html` by the build. |
 | `src/engine-reference.js`, `src/ranges-reference.js` | The tested reference engines the port came from. Not shipped; kept as provenance and as the fixtures for the differential test **T0**. |

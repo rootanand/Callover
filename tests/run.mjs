@@ -1030,7 +1030,7 @@ group('T10  the privacy band is a factual claim');
   /* Every page shipped alongside the app is held to the same standard. A
      tutorial that pulled in a web font would undermine the claim it explains. */
   {
-    const shipped = ['How to use.html'];
+    const shipped = ['how-to-use.html'];
     const bad = [];
     for (const f of shipped) {
       const p = join(ROOT, f);
@@ -1051,8 +1051,8 @@ group('T10  the privacy band is a factual claim');
       `${shipped.length} companion page(s) load nothing from anywhere` +
       (bad.length ? ` — ${bad.join('; ')}` : ''));
 
-    const tut = existsSync(join(ROOT, 'How to use.html'))
-      ? readFileSync(join(ROOT, 'How to use.html'), 'utf8') : '';
+    const tut = existsSync(join(ROOT, 'how-to-use.html'))
+      ? readFileSync(join(ROOT, 'how-to-use.html'), 'utf8') : '';
     const banned = CO.BANNED_WORDS.filter(w => tut.toLowerCase().includes(w.toLowerCase()));
     t('T10-11', tut.includes('index.html') && banned.length === 0,
       'the tutorial links back to the app and uses none of the banned unfalsifiable words' +
