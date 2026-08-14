@@ -1077,7 +1077,86 @@
       ]);
     },
 
+    /* The bound actually used around the engine, and it watches for SILENCE
+       rather than counting down to a deadline. See the note on OCR_SILENCE_MS
+       in 00-config.js: a single long timer is unreliable in a background tab,
+       and a user who switches away mid-run would get no bound at all.
+
+       Every reading comes from Date.now(), so a throttled or postponed
+       interval can only delay detection — it can never fire early on a page
+       that was quietly making progress. */
+    _tick: 0,
+    _pending: new Set(),
+
+    watch(promise, what, hardMs) {
+      const HARD = hardMs || CO.OCR_PAGE_TIMEOUT_MS;
+      const t0 = Date.now();
+      this._tick = t0;
+      const self = this;
+
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const stop = () => { settled = true; clearInterval(iv); self._pending.delete(abort); };
+
+        /* The escape hatch that does not depend on a timer at all. A browser
+           freezes timers in a tab that has been hidden a long while — measured
+           here: a 4-second interval that had not run for 164 seconds — so
+           neither the silence budget nor the hard ceiling can be relied on
+           while nobody is looking. Cancelling is driven by the user, and a
+           user who is looking at the page is a user whose timers are running. */
+        const abort = why => { if (settled) return; stop(); reject(new Error(why)); };
+        this._pending.add(abort);
+
+        const iv = setInterval(() => {
+          if (settled) return;
+          const silent = Date.now() - self._tick, total = Date.now() - t0;
+          if (silent >= CO.OCR_SILENCE_MS)
+            abort(`${what} stopped responding — nothing for ${Math.round(silent / 1000)} seconds`);
+          else if (total >= HARD)
+            abort(`${what} gave up after ${Math.round(total / 1000)} seconds`);
+        }, CO.OCR_WATCH_INTERVAL_MS);
+
+        promise.then(v => { if (!settled) { stop(); resolve(v); } },
+                     e => { if (!settled) { stop(); reject(e); } });
+      });
+    },
+
+    /* Abandon whatever OCR is doing, now. Terminating the worker is what
+       actually stops a wedged job; rejecting the pending promises is what
+       releases the run loop that is awaiting it. */
+    cancelAll(why) {
+      const reason = why || 'Reading was stopped.';
+      for (const abort of [...this._pending]) abort(reason);
+      this._pending.clear();
+      this.shutdown();
+    },
+
+    /* A promise that rejects the moment cancelAll fires, whatever OCR happens
+       to be doing. Raced against readPage at the call site, so the run loop is
+       released even when the wedge is somewhere readPage does not own — a
+       canvas render that never completes in a frozen tab, say, which is not a
+       tesseract call at all and cannot be bounded from inside. */
+    cancelSignal() {
+      const self = this;
+      return new Promise((_, reject) => {
+        const abort = why => { self._pending.delete(abort); reject(new Error(why)); };
+        self._pending.add(abort);
+      });
+    },
+
+    /* Where every progress event from the engine lands. It both feeds the
+       progress panel and keeps the watchdog quiet, and it is stored on the
+       object rather than captured at createWorker time — the logger is bound
+       once for the worker's whole life, so a callback captured from the first
+       page would leave every later page reporting nothing. */
+    _onProgress: null,
+    _log(m) {
+      this._tick = Date.now();
+      if (this._onProgress && m && m.status) this._onProgress(m);
+    },
+
     async ensure(onProgress) {
+      if (onProgress) this._onProgress = onProgress;
       if (this.worker) return this.worker;
       if (this.state === 'failed') return null;
       const why = this.unavailableReason();
@@ -1085,13 +1164,13 @@
       try {
         await this.loadEngine();
         const P = CO.OCR_PATHS;
-        this.worker = await this.withTimeout(globalThis.Tesseract.createWorker(P.langCode, 1, {
+        this.worker = await this.watch(globalThis.Tesseract.createWorker(P.langCode, 1, {
           workerPath: this.abs(P.worker),
           corePath: this.abs((await this.simdSupported()) ? P.coreSimd : P.core),
           langPath: this.abs(P.lang),
           cacheMethod: 'none',
-          logger: m => { if (onProgress && m.status) onProgress(m); }
-        }), CO.OCR_START_TIMEOUT_MS, 'Starting the offline text engine');
+          logger: m => this._log(m)
+        }), 'Starting the offline text engine', CO.OCR_START_TIMEOUT_MS);
         this.state = 'ready';
         return this.worker;
       } catch (e) {
@@ -1126,7 +1205,7 @@
 
       let res;
       try {
-        res = await this.withTimeout(w.recognize(canvas), CO.OCR_PAGE_TIMEOUT_MS,
+        res = await this.watch(w.recognize(canvas),
           `Picture-reading page ${pdfPage.pageNumber || ''}`.trim());
       } catch (e) {
         /* Give up on this page, not on the run. The page is reported by name
@@ -1235,6 +1314,9 @@
     const roster   = opts.roster || [];
     const thorough = opts.thorough !== false;
     const report   = opts.onProgress || (() => {});
+    /* Checked between pages so a stopped run finishes with what it has read so
+       far rather than throwing it away. Half a list is worth more than none. */
+    const stopped  = opts.stopped || (() => false);
     const lib      = await pdfio.ensure();
 
     const result = {
@@ -1257,6 +1339,12 @@
 
     /* ---- phase 1: read every page, OCR the ones with no text layer ---- */
     for (let n = 1; n <= doc.numPages; n++) {
+      if (stopped()) {
+        result.notes.push({ level: 'warn', text:
+          `${fileRec.name}: you stopped the run after page ${n - 1} of ${doc.numPages}. ` +
+          'Everything read up to that point is below; the rest of the file was not searched.' });
+        break;
+      }
       let page;
       try {
         page = await pdfio.readPage(doc, n, lib);
@@ -1267,8 +1355,11 @@
       }
 
       if (page.charCount < X.OCR_MIN_CHARS) {
-        const spans = await ocr.readPage(page._pdfPage, page.height,
-          m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m }));
+        const spans = await Promise.race([
+          ocr.readPage(page._pdfPage, page.height,
+            m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m })),
+          ocr.cancelSignal()
+        ]).catch(() => null);
         if (spans) {
           page.spans = spans; page.wasOCR = true; finishPage(page);
           result.ocrPages.push(n);
@@ -1281,8 +1372,11 @@
       } else if (thorough && page.charCount < X.THIN_TEXT_CHARS) {
         /* §5.11 thorough mode: read a thin page a second way and merge, so a
            partly-broken text layer cannot hide a listing. */
-        const spans = await ocr.readPage(page._pdfPage, page.height,
-          m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m }));
+        const spans = await Promise.race([
+          ocr.readPage(page._pdfPage, page.height,
+            m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m })),
+          ocr.cancelSignal()
+        ]).catch(() => null);
         if (spans && spans.length) {
           page.ocrSpans = spans;
           page.spans = page.spans.concat(spans);

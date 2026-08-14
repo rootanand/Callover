@@ -14,11 +14,43 @@
 
     const qCoreStr = q.core.join(' '), cCoreStr = c.core.join(' ');
     const qFlat = qCoreStr.replace(/ /g, ''), cFlat = cCoreStr.replace(/ /g, '');
-    const qFold = CO.foldIndic(qCoreStr),     cFold = CO.foldIndic(cCoreStr);
 
-    const rawSim  = Math.max(CO.ratio(qFlat, cFlat), CO.jaroWinkler(qFlat, cFlat));
+    /* ORDER GUARD.
+
+       rawSim and foldSim compare the core tokens CONCATENATED, so they are
+       order-sensitive, and between them they carry 0.70 of the mix against
+       0.30 for the order-independent tokenSetScore. A registry that prints
+       "SELVAN T.THAMARAI" for "T. Thamarai Selvan" — surname first, which is a
+       routine convention — therefore scored 0.57 and fell below the 0.72 core
+       gate, and the matter was dropped. Under C4 that is the expensive
+       direction of error: a wrongly shown row costs a glance, a wrongly
+       dropped row costs an appearance.
+
+       So each measure is taken as the better of the in-order and the
+       token-sorted comparison. This is a pure Math.max over an additional
+       candidate, so NO SCORE CAN EVER FALL and nothing that matched before can
+       stop matching. For a single-token core name the sorted form is the
+       in-order form, which is every case in T1, T2, T4 and T6.
+
+       Measured over 16,276 pairs — the reference corpus plus every distinct
+       string extracted from the synthetic corpus and all four real HR&CE
+       files — it changes five tiers: it recovers P17, it promotes D10
+       ("T.SELVAN" against "T. Thamarai Selvan") from none to review, and it
+       moves three unrelated names into the hidden weak tier. See
+       docs/measurements.md §5. T0 asserts the divergence from
+       src/engine-reference.js is exactly this and nothing else. */
+    const qSort = [...q.core].sort().join(' '), cSort = [...c.core].sort().join(' ');
+    const qSortFlat = qSort.replace(/ /g, ''), cSortFlat = cSort.replace(/ /g, '');
+    const best2 = (a1, b1, a2, b2) => Math.max(
+      CO.ratio(a1, b1), CO.jaroWinkler(a1, b1),
+      CO.ratio(a2, b2), CO.jaroWinkler(a2, b2));
+
+    const qFold = CO.foldIndic(qCoreStr), cFold = CO.foldIndic(cCoreStr);
+    const qFoldSort = CO.foldIndic(qSort), cFoldSort = CO.foldIndic(cSort);
+
+    const rawSim  = best2(qFlat, cFlat, qSortFlat, cSortFlat);
     const foldSim = qFold && cFold
-      ? Math.max(CO.ratio(qFold, cFold), CO.jaroWinkler(qFold, cFold))
+      ? best2(qFold, cFold, qFoldSort || qFold, cFoldSort || cFold)
       : 0;
 
     /* A join or a split — "Thamarai Selvan" against "Thamaraiselvan" — is not

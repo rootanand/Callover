@@ -94,6 +94,13 @@ from a double-clicked `index.html` with no folder beside it. When a page has no 
 layer and OCR cannot start, Callover names the page and says results may be incomplete;
 it never fails quietly.
 
+**Picture-reading is slow, and you can always stop.** A dense A4 page takes upwards of
+two minutes, so the progress panel says which page is being read and how far along it
+is, and **Stop and keep what has been read** ends the run at once, keeps everything read
+so far, and states which pages were skipped. Nobody should be trapped watching a bar
+that is not moving — and a browser freezes timers in a tab you have left, so the escape
+is a button, not a timeout.
+
 To serve it locally:
 
 ```bash

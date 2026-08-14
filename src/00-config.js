@@ -458,9 +458,21 @@
      succeeded loses a listing, and a missed listing costs an appearance — so
      the budget is set well above the worst case actually observed, and the
      progress panel reports what OCR is doing so a slow page never reads as a
-     hang. */
-  CO.OCR_PAGE_TIMEOUT_MS = 300000;
-  CO.OCR_START_TIMEOUT_MS = 60000;
+     hang.
+
+     SILENCE is the one that actually does the work. A single long deadline is
+     unreliable: a browser throttles long timers hard in a background tab, and
+     a user who switches away mid-run gets no timeout at all — observed, with a
+     300-second deadline still unfired after 370 seconds in a hidden tab. So
+     the watchdog instead fires when the engine has said NOTHING for this long,
+     it re-arms every few seconds, and it compares wall-clock readings rather
+     than trusting the timer to be punctual. Throttling can then delay
+     detection but can never cause a false alarm, and "slow but working" is
+     told apart from "wedged" — which a fixed deadline cannot do at all. */
+  CO.OCR_PAGE_TIMEOUT_MS  = 300000;   // absolute ceiling for one page
+  CO.OCR_SILENCE_MS       = 90000;    // no word from the engine for this long
+  CO.OCR_START_TIMEOUT_MS = 90000;    // ceiling for starting the engine
+  CO.OCR_WATCH_INTERVAL_MS = 4000;    // how often the watchdog looks
 
 })(typeof globalThis !== 'undefined'
      ? (globalThis.Callover = globalThis.Callover || {})

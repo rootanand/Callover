@@ -102,18 +102,22 @@ loses most of a practice (D25).
 
 ---
 
-## 5. Two golden expectations the supplied engine cannot meet
+## 5. Where the engine departs from the supplied reference
 
 `src/engine-reference.js` is the tested reference the README says to port and
-not rewrite, and `src/10-…40-*.js` reproduce it exactly — `tests/run.mjs` runs a
-differential pass (T0) over 3,364 name pairs and every normalisation input,
-asserting the two agree bit for bit.
+not rewrite. `src/10-` … `src/60-*.js` reproduce it exactly **except for one
+deliberate change, the order guard in §4.4**, described in 5b below.
+`tests/run.mjs` runs a differential pass (T0) over 3,364 name pairs and every
+normalisation input, proving that divergence is the only one and that it is
+bounded in the safe direction:
 
-Run against `fixtures/golden.json`, that engine lands **29 of 31** planted items
-in their expected tier. The two it misses are properties of the reference
-scoring formula in §4.4, not of the port, and neither can be fixed without
-moving constants that §4.3 and §4.4 explicitly forbid moving without a T6 run
-against a real 642-page list — which is not in the repository (§10.6).
+| | |
+|---|---|
+| T0-01 | normalisation, range expansion and the distance primitives are bit-for-bit identical |
+| T0-02 | no score can ever fall — the guard is a pure `Math.max` |
+| T0-03 | scores are exactly identical wherever the token order already agreed |
+| T0-04 | classification is unchanged given the same score |
+| T0-05 | no tier can fall; the four that rise are enumerated in the test output |
 
 ### D09 — `M.KRISHNAN` against `M. Krishnamurthy`: expected `none`, scores `review`
 
@@ -123,39 +127,63 @@ against a real 642-page list — which is not in the repository (§10.6).
 | combined | 0.769 (review threshold is 0.68) |
 | why | The consonant skeletons are `KRSNMRT` and `KRSNN`. Jaro-Winkler rewards the seven-character shared opening heavily, so `foldSim` reaches 0.85 despite the names differing by five characters. |
 
-This is the only violation of **T5-02** (*no item expecting `none` reaches auto
-or review*). It is a precision miss, and it costs one glance on a confirm card.
-Constraint C4 states the asymmetry deliberately: *a wrongly shown row costs a
-glance, a wrongly dropped row costs an appearance*, so this is the survivable
-direction of error. T5-02 runs with a single named allow-list entry for D09; the
-test fails if any other item joins it, and fails if the allow-list is widened.
+This is a precision miss and it costs one glance on a confirm card. Constraint
+C4 states the asymmetry deliberately: *a wrongly shown row costs a glance, a
+wrongly dropped row costs an appearance*, so this is the survivable direction of
+error. It is allow-listed by name in **T5-02**, which fails if the list is
+widened, if D09 stops surfacing, or if it ever reaches `auto`.
 
-### P17 — `SELVAN T.THAMARAI` against `T. Thamarai Selvan`: expected `review`, scores `none`
+### 5b. P17 — `SELVAN T.THAMARAI` against `T. Thamarai Selvan`
+
+Before the order guard this scored **`none`** where `fixtures/golden.json`
+expects `review`: the matter was dropped entirely.
 
 | | |
 |---|---|
-| core | 0.57 (gate is 0.72) |
-| why | `rawSim` and `foldSim` both compare the core tokens **concatenated in order**, and this name is printed with its parts reversed. `tokenSetScore` recognises it perfectly (1.00), but it carries only 0.30 of the mix against 0.70 for the two order-sensitive measures. |
+| core | 0.57 against a gate of 0.72 |
+| why | `rawSim` and `foldSim` compare the core tokens **concatenated in order**, and this name is printed with its parts reversed. `tokenSetScore` recognises it perfectly at 1.00, but carries only 0.30 of the mix against 0.70 for the two order-sensitive measures. |
 
-This is a **recall** miss, and under C4 it is the expensive direction: the matter
-is dropped, not merely shown. §10.5 does not assert it — T5-01 covers only
-`auto` items and T5-02 only `none` items — so the suite is green either way, but
-it is the more serious of the two.
+Under C4 this is the expensive direction — the matter is not merely shown
+wrongly, it is lost. §10.5 does not assert it (T5-01 covers only `auto` items
+and T5-02 only `none` items), so the suite was green either way, which is
+exactly why it needed writing down.
 
-**There is a candidate fix, and it is deliberately not applied.** Taking
-`rawSim` and `foldSim` as the better of the in-order and the token-sorted
-comparison is a pure `Math.max`, so no score can ever fall and no currently
-matching pair can stop matching. It is a no-op for single-token core names,
-which is every case in T1, T2, T4 and T6. Checked by hand it recovers P17 and
-leaves the T2-11/T2-12 decoys (`R.GANESHKUMAR`, `S.GANESH BABU`) hidden, and
-D10 (`T.SELVAN`) below the gate.
+**The fix, now applied.** `rawSim` and `foldSim` are each taken as the better of
+the in-order and the token-sorted comparison. Because it is a `Math.max` over an
+additional candidate:
 
-It is left unapplied because §4.4 is specified to the literal constant and D3
-records that these weights were set by measurement against a real list; adopting
-a scoring change on the strength of hand-checking one synthetic fixture is
-exactly the silent reversal the TDD is written to prevent. **It should be
-adopted only after a T6 run against a real Madras HC cause list**, which the
-repository does not ship (§10.6 — CI skips T6 unless `fixtures/real/` exists).
+- no score can fall, so nothing that matched before can stop matching;
+- for a single-token core name the sorted form *is* the in-order form, so it is
+  a no-op for every case in T1, T2, T4 and T6.
+
+Measured over **16,276 pairs** — the reference corpus plus every distinct string
+the extractor pulled from the synthetic corpus and all four real HR&CE files —
+2,074 scores rose, **none fell**, and exactly five tiers changed:
+
+| Pair | Before | After | Verdict |
+|---|---|---|---|
+| `SELVAN T.THAMARAI` / `T. Thamarai Selvan` | none | **auto** | P17 recovered. Both core tokens and the initial match exactly; only the order differs. |
+| `T.SELVAN` / `T. Thamarai Selvan` | none | **review** | D10. The cost, and it is a fair question to ask: the initial matches and `Selvan` is one of the two core tokens. |
+| `S.Vijaya Ganesh` / `E. Ganesh` | none | weak | hidden behind the toggle |
+| `G.Selvam` / `T. Thamarai Selvan` | none | weak | hidden behind the toggle |
+| `E. Ganesh` / `S.Vijaya Ganesh` | none | weak | hidden behind the toggle |
+
+**The real HR&CE data is entirely unchanged.** Across the 11.08 and 04.08 lists
+plus Adjournment Notice No.16, the attending set is the same fifteen matters and
+the same two confirm questions before and after.
+
+So the whole price is D10 joining D09 in the confirm queue: one extra card, one
+glance, against a matter recovered from being silently dropped. That is the
+trade C4 asks for in as many words. D10 is allow-listed by name in T5-02 and
+T5-02b asserts P17 now lands.
+
+**The caution that held this back still stands for anything further.** §4.3 and
+§4.4 set their constants by measurement against a real 642-page list, and D2 and
+D3 say so explicitly. This change was adopted because T0 can prove it is
+monotone — no score falls, no tier falls, and same-order names are untouched —
+which is a property a reviewer can check without the real list. **A change that
+cannot be proved monotone should wait for a T6 run**, which needs a real Madras
+HC cause list in `fixtures/real/` (§10.6 — CI skips T6 when it is absent).
 
 ---
 

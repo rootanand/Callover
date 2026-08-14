@@ -386,18 +386,21 @@
      ================================================================== */
   async function run() {
     if (!canRun() || S.running) return;
-    S.running = true; S.error = null; S.results = null; S.progress = { pages: 0, of: 0, ocr: 0, items: 0, file: '', t0: Date.now() };
+    S.running = true; S.stopRequested = false; S.error = null; S.results = null;
+    S.progress = { pages: 0, of: 0, ocr: 0, items: 0, file: '', t0: Date.now() };
     render();
     say('Reading. This runs entirely on this device.');
 
     try {
       const docs = [];
       for (const f of S.files) {
+        if (S.stopRequested) break;
         S.progress.file = f.name;
         const d = await CO.extract.readDocument(
           { name: f.name, bytes: f.bytes, official: f.official, typeOverride: f.typeOverride },
           {
             roster: S.advocates, thorough: S.thorough,
+            stopped: () => S.stopRequested,
             onProgress: p => {
               if (p.phase === 'read') { S.progress.pages++; S.progress.of = p.of; }
               if (p.phase === 'ocr' && p.detail && p.detail.status) {
@@ -472,7 +475,18 @@
         el('span', {}, 'items found ', el('b', { id: 'co-p-items', text: String(p.items) })),
         el('span', {}, 'elapsed ', el('b', { id: 'co-p-el', text: '0s' }))),
       el('div', { id: 'co-p-ocrline', class: 'st',
-        style: 'margin-top:8px;color:#E0C08A;display:block' }));
+        style: 'margin-top:8px;color:#E0C08A;display:block' }),
+      /* Nobody should ever be trapped watching a bar that is not moving.
+         Stopping keeps everything read so far, and says what was skipped. */
+      el('div', { style: 'margin-top:12px' },
+        el('button', { class: 'btn ghost sm', id: 'co-stop',
+          onclick: () => {
+            S.stopRequested = true;
+            CO.extract.ocr.cancelAll('You stopped the run.');
+            say('Stopping. Everything already read will be kept.');
+            const b = $('co-stop');
+            if (b) { b.disabled = true; b.textContent = 'Stopping…'; }
+          } }, 'Stop and keep what has been read')));
   }
 
   /* ======================================================================

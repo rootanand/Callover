@@ -48,9 +48,24 @@ const pad2    = n => String(n).padStart(2, '0');
 console.log(`\nCallover ${CO.VERSION} — TDD.md §10 test suite`);
 
 /* ==========================================================================
-   T0 — the port is the reference (not in §10; added because §4 forbids drift)
+   T0 — the port against the reference (not in §10; added because §4 forbids
+   silent drift).
+
+   The port is identical to src/engine-reference.js in every part EXCEPT the
+   order guard in §4.4 (see docs/measurements.md §5). That one divergence is
+   deliberate, and this group's job is to prove it is the ONLY one and that it
+   is bounded in the direction that matters:
+
+     T0-01  normalisation, range expansion and the distance primitives are
+            bit-for-bit identical
+     T0-02  no score can ever fall — the guard is a pure Math.max
+     T0-03  scores are EXACTLY identical wherever the token order already
+            agreed, which is every single-token name and therefore every case
+            in T1, T2, T4 and T6
+     T0-04  classification is unchanged given the same score
+     T0-05  no tier can fall; the tiers that rise are enumerated
    ========================================================================== */
-group('T0  the ported engine is bit-for-bit the reference');
+group('T0  the ported engine against the reference');
 {
   const NAMES = [
     'E. Ganesh','M/S.E.GANESH','GANESH E.','R.GANESAN','S.VIGNESH','M. Krishnamurthy',
@@ -92,22 +107,59 @@ group('T0  the ported engine is bit-for-bit the reference');
     checks++;
     if (!same(CO.expandCaseCell(cell), RNG.expandCaseCell(cell))) diffs.push(`expandCaseCell ${JSON.stringify(cell)}`);
   }
-  let pairs = 0;
+  t('T0-01', diffs.length === 0,
+    `${checks} comparisons — normalisation, ranges and distance primitives are identical` +
+    (diffs.length ? ` — ${diffs.length} DIVERGENCES: ${diffs.slice(0, 5).join('; ')}` : ''));
+
+  /* Where the token order already agrees, the sorted candidate the guard adds
+     is the in-order one, so the score must be untouched. That is every
+     single-token core name — i.e. every case in T1, T2, T4 and T6. */
+  const sameOrder = (q, c) => {
+    const a = CO.splitName(q).core, b = CO.splitName(c).core;
+    const sorted = x => [...x].sort().join(' ') === x.join(' ');
+    return sorted(a) && sorted(b);
+  };
+
+  let pairs = 0, fell = [], changedSameOrder = [], nullness = [], classifyDiff = [];
+  const rank = { none: 0, weak: 1, review: 2, auto: 3 };
+  const rose = [], tierFell = [];
+
   for (const q of NAMES) for (const c of NAMES) {
     pairs++;
     const a = CO.nameScore(q, c), b = REF.nameScore(q, c);
-    checks++;
-    if ((a === null) !== (b === null)) { diffs.push(`nameScore null ${q}|${c}`); continue; }
+    if ((a === null) !== (b === null)) { nullness.push(`${q}|${c}`); continue; }
     if (a === null) continue;
-    if (!near(a.combined, b.combined) || !near(a.core, b.core) || a.initials.state !== b.initials.state)
-      diffs.push(`nameScore ${q}|${c}`);
+
+    if (a.combined + 1e-12 < b.combined)
+      fell.push(`${q}|${c} ${b.combined.toFixed(4)} -> ${a.combined.toFixed(4)}`);
+    if (sameOrder(q, c) && (!near(a.combined, b.combined) || !near(a.core, b.core)))
+      changedSameOrder.push(`${q}|${c} ${b.combined.toFixed(4)} -> ${a.combined.toFixed(4)}`);
+    if (a.initials.state !== b.initials.state) classifyDiff.push(`initials ${q}|${c}`);
+
     for (const ocr of [false, true]) {
-      checks++;
-      if (CO.classify(a, { ocr }) !== REF.classify(b, { ocr })) diffs.push(`classify ${q}|${c} ocr=${ocr}`);
+      /* the classifier itself, fed the identical score object */
+      if (CO.classify(b, { ocr }) !== REF.classify(b, { ocr })) classifyDiff.push(`classify ${q}|${c}`);
+      const ta = REF.classify(b, { ocr }), tb = CO.classify(a, { ocr });
+      if (rank[tb] < rank[ta]) tierFell.push(`${q}|${c} ${ta} -> ${tb}`);
+      else if (rank[tb] > rank[ta] && !ocr) rose.push(`${JSON.stringify(c)} for ${JSON.stringify(q)}: ${ta} -> ${tb}`);
     }
   }
-  t('T0-01', diffs.length === 0,
-    `${checks} comparisons over ${pairs} name pairs` + (diffs.length ? ` — ${diffs.length} DIVERGENCES: ${diffs.slice(0, 5).join('; ')}` : ''));
+
+  t('T0-02', fell.length === 0 && nullness.length === 0,
+    `over ${pairs} name pairs no score falls — the order guard is a pure Math.max` +
+    (fell.length ? ` — ${fell.length} FELL: ${fell.slice(0, 3).join('; ')}` : ''));
+
+  t('T0-03', changedSameOrder.length === 0,
+    'scores are untouched wherever the token order already agreed' +
+    (changedSameOrder.length ? ` — ${changedSameOrder.slice(0, 3).join('; ')}` : ''));
+
+  t('T0-04', classifyDiff.length === 0,
+    'classification is unchanged given the same score' +
+    (classifyDiff.length ? ` — ${classifyDiff.slice(0, 3).join('; ')}` : ''));
+
+  t('T0-05', tierFell.length === 0,
+    `no tier falls; ${rose.length} rise` + (rose.length ? `: ${rose.join(' · ')}` : '') +
+    (tierFell.length ? ` — ${tierFell.length} FELL: ${tierFell.slice(0, 3).join('; ')}` : ''));
 }
 
 /* ==========================================================================
@@ -290,15 +342,31 @@ const synth = CO.engine.run({
   t('T5-01', missedAuto.length === 0,
     `all ${autos.length} auto-expected items reach auto` + (missedAuto.length ? ` — missed ${missedAuto.map(g => g.id).join(', ')}` : ''));
 
-  /* One documented allow-list entry — see docs/measurements.md §5. */
-  const ALLOWED = { D09: 'reference §4.4 scores M.KRISHNAN at core 0.769 on the shared KRSN skeleton' };
+  /* Two documented allow-list entries — see docs/measurements.md §5. Both
+     surface at review, which under C4 costs a glance; the test fails if the
+     list is widened, if either stops appearing, or if either reaches auto. */
+  const ALLOWED = {
+    D09: 'reference §4.4 scores M.KRISHNAN at core 0.769 on the shared KRSN skeleton',
+    D10: 'the order guard lifts T.SELVAN over the core gate — the price of recovering P17'
+  };
   const nones = golden.items.filter(g => g.expect === 'none');
   const leaked = nones.filter(g => shown(got(g)));
   const unexpected = leaked.filter(g => !ALLOWED[g.id]);
-  t('T5-02', unexpected.length === 0 && Object.keys(ALLOWED).every(id => leaked.some(g => g.id === id)),
-    `${nones.length} none-expected items; ${leaked.length} surfaced, all allow-listed` +
+  const missing = Object.keys(ALLOWED).filter(id => !leaked.some(g => g.id === id));
+  const tooHigh = leaked.filter(g => got(g) === 'auto');
+  t('T5-02', unexpected.length === 0 && missing.length === 0 && tooHigh.length === 0,
+    `${nones.length} none-expected items; ${leaked.length} surfaced at review, both allow-listed` +
     (unexpected.length ? ` — UNEXPECTED ${unexpected.map(g => g.id).join(', ')}` : '') +
+    (missing.length ? ` — allow-list is stale, ${missing.join(', ')} no longer surface` : '') +
+    (tooHigh.length ? ` — REACHED AUTO: ${tooHigh.map(g => g.id).join(', ')}` : '') +
     (leaked.length ? ` [${leaked.map(g => g.id + ': ' + ALLOWED[g.id]).join('; ')}]` : ''));
+
+  /* §4.4 order guard — the recall miss this was added for. A registry that
+     prints the surname first must not lose the matter. */
+  const p17 = best.get(CO.normCaseNo('WP/9098/2026'));
+  t('T5-02b', p17 && shown(p17.tier) && p17.advocate && p17.advocate.name === 'T. Thamarai Selvan',
+    `P17 "SELVAN T.THAMARAI" reaches ${p17 ? p17.tier : 'none'} for ${p17 && p17.advocate ? p17.advocate.name : '—'} ` +
+    '(it was dropped entirely before the order guard)');
 
   const p01 = synth.matches.filter(m => m.item.caseKeys.includes(CO.normCaseNo('WA/2025/2026')));
   t('T5-03', p01.length === 4, `P01 yields ${p01.length} matches (want 4 — the cluster of four)`);
@@ -332,9 +400,10 @@ const synth = CO.engine.run({
     .map(n => n.name.toUpperCase().replace(/[^A-Z]/g, ''))));
   const subsetNames = new Set(synthDoc.items.slice(0, 8).flatMap(i => i.namesWithRole
     .filter(n => n.matchRole === 'counsel').map(n => n.name.toUpperCase().replace(/[^A-Z]/g, ''))));
-  const missing = [...subsetNames].filter(n => !messyNames.has(n));
-  t('T5-10', missing.length === 0,
-    `the messy variant yields the same advocates as its subset` + (missing.length ? ` — missing ${missing.join(', ')}` : ''));
+  const lostInMessy = [...subsetNames].filter(n => !messyNames.has(n));
+  t('T5-10', lostInMessy.length === 0,
+    `the messy variant yields the same advocates as its subset` +
+    (lostInMessy.length ? ` — missing ${lostInMessy.join(', ')}` : ''));
 }
 
 /* ==========================================================================
@@ -1086,15 +1155,75 @@ group('T7  OCR pipeline');
      not be read to be named; a promise that never settles names nothing. */
   {
     const ocr = CO.extract.ocr;
+    const saved = { s: CO.OCR_SILENCE_MS, h: CO.OCR_PAGE_TIMEOUT_MS, i: CO.OCR_WATCH_INTERVAL_MS };
+    CO.OCR_SILENCE_MS = 120; CO.OCR_PAGE_TIMEOUT_MS = 5000; CO.OCR_WATCH_INTERVAL_MS = 20;
+
     let threw = null;
-    try { await ocr.withTimeout(new Promise(() => {}), 30, 'Picture-reading page 4'); }
+    try { await ocr.watch(new Promise(() => {}), 'Picture-reading page 4'); }
     catch (e) { threw = e.message; }
-    t('T7-05', threw && /page 4/.test(threw) && /gave up/.test(threw),
-      `an OCR call that never settles is abandoned and named — "${threw}"`);
-    const quick = await ocr.withTimeout(Promise.resolve('done'), 5000, 'x');
-    t('T7-06', quick === 'done' && CO.OCR_PAGE_TIMEOUT_MS > 60000 && CO.OCR_START_TIMEOUT_MS > 10000,
-      `a call that settles in time is untouched; page budget ${CO.OCR_PAGE_TIMEOUT_MS / 1000}s, ` +
-      `start budget ${CO.OCR_START_TIMEOUT_MS / 1000}s`);
+    t('T7-05', threw && /page 4/.test(threw) && /stopped responding/.test(threw),
+      `an engine that goes silent is abandoned and the page is named — "${threw}"`);
+
+    /* Slow but talking must NOT be killed: a dense page really does take two
+       minutes, and cutting it off would lose a listing. */
+    let slow = null, slowErr = null;
+    const chatty = new Promise(res => {
+      let n = 0;
+      const iv = setInterval(() => { ocr._log({ status: 'recognizing text', progress: ++n / 10 });
+        if (n === 10) { clearInterval(iv); res('finished'); } }, 40);
+    });
+    try { slow = await ocr.watch(chatty, 'Picture-reading page 5'); } catch (e) { slowErr = e.message; }
+    t('T7-06', slow === 'finished' && !slowErr,
+      'a page that keeps reporting progress is left alone, however long it takes' +
+      (slowErr ? ` — killed with "${slowErr}"` : ''));
+
+    /* The absolute ceiling still applies to something that chatters forever. */
+    let hard = null, chatter = null;
+    const forever = new Promise(() => {
+      chatter = setInterval(() => ocr._log({ status: 'recognizing text' }), 20);
+    });
+    try { await ocr.watch(forever, 'Picture-reading page 6'); } catch (e) { hard = e.message; }
+    clearInterval(chatter);
+    t('T7-07', hard && /gave up/.test(hard), `the absolute ceiling still bites — "${hard}"`);
+
+    /* Cancelling must work without any timer, because a browser freezes timers
+       in a long-hidden tab — measured: a 4-second interval that had not run
+       for 164 seconds. Budgets are set enormous here so only cancelAll() can
+       possibly settle it. */
+    CO.OCR_SILENCE_MS = 1e9; CO.OCR_PAGE_TIMEOUT_MS = 1e9;
+    let cancelled = null;
+    const stuck = ocr.watch(new Promise(() => {}), 'Picture-reading page 7');
+    ocr.cancelAll('You stopped the run.');
+    try { await stuck; } catch (e) { cancelled = e.message; }
+    t('T7-09', cancelled === 'You stopped the run.' && ocr._pending.size === 0,
+      `a stuck page can be abandoned by the user with no timer involved — "${cancelled}"`);
+
+    /* And the run loop is released even when the wedge is somewhere readPage
+       does not own — a canvas render that never completes, for instance. */
+    let released = null;
+    const neverSettles = new Promise(() => {});
+    const raced = Promise.race([neverSettles, ocr.cancelSignal()]).catch(e => e.message);
+    ocr.cancelAll('You stopped the run.');
+    released = await raced;
+    t('T7-09b', released === 'You stopped the run.' && ocr._pending.size === 0,
+      `the run loop is released whatever OCR was stuck inside — "${released}"`);
+
+    Object.assign(CO, { OCR_SILENCE_MS: saved.s, OCR_PAGE_TIMEOUT_MS: saved.h, OCR_WATCH_INTERVAL_MS: saved.i });
+    t('T7-08', CO.OCR_SILENCE_MS >= 60000 && CO.OCR_PAGE_TIMEOUT_MS > CO.OCR_SILENCE_MS,
+      `budgets: ${CO.OCR_SILENCE_MS / 1000}s of silence, ${CO.OCR_PAGE_TIMEOUT_MS / 1000}s absolute, ` +
+      `${CO.OCR_START_TIMEOUT_MS / 1000}s to start`);
+  }
+
+  /* A stopped run keeps what it has read and says what it skipped (§8.7). */
+  {
+    let seen = 0;
+    const partial = await CO.extract.readDocument(
+      { name: 'stopped.pdf', bytes: new Uint8Array(readFileSync(fixture('causelist-synthetic-14082026.pdf'))),
+        official: false },
+      { roster: synthRoster, thorough: false, stopped: () => ++seen > 6 });
+    t('T7-10', partial.items.length > 0 && partial.pages.length === 6 &&
+              partial.notes.some(n => /you stopped the run/i.test(n.text)),
+      `stopping after ${partial.pages.length} pages keeps ${partial.items.length} items and names what was skipped`);
   }
   t('T7-04', synthDoc.items.every(i => Array.isArray(i.ocrPages)),
     'ocrPages is populated on every result');

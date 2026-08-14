@@ -1351,9 +1351,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
      succeeded loses a listing, and a missed listing costs an appearance — so
      the budget is set well above the worst case actually observed, and the
      progress panel reports what OCR is doing so a slow page never reads as a
-     hang. */
-  CO.OCR_PAGE_TIMEOUT_MS = 300000;
-  CO.OCR_START_TIMEOUT_MS = 60000;
+     hang.
+
+     SILENCE is the one that actually does the work. A single long deadline is
+     unreliable: a browser throttles long timers hard in a background tab, and
+     a user who switches away mid-run gets no timeout at all — observed, with a
+     300-second deadline still unfired after 370 seconds in a hidden tab. So
+     the watchdog instead fires when the engine has said NOTHING for this long,
+     it re-arms every few seconds, and it compares wall-clock readings rather
+     than trusting the timer to be punctual. Throttling can then delay
+     detection but can never cause a false alarm, and "slow but working" is
+     told apart from "wedged" — which a fixed deadline cannot do at all. */
+  CO.OCR_PAGE_TIMEOUT_MS  = 300000;   // absolute ceiling for one page
+  CO.OCR_SILENCE_MS       = 90000;    // no word from the engine for this long
+  CO.OCR_START_TIMEOUT_MS = 90000;    // ceiling for starting the engine
+  CO.OCR_WATCH_INTERVAL_MS = 4000;    // how often the watchdog looks
 
 })(typeof globalThis !== 'undefined'
      ? (globalThis.Callover = globalThis.Callover || {})
@@ -1829,11 +1841,43 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
 
     const qCoreStr = q.core.join(' '), cCoreStr = c.core.join(' ');
     const qFlat = qCoreStr.replace(/ /g, ''), cFlat = cCoreStr.replace(/ /g, '');
-    const qFold = CO.foldIndic(qCoreStr),     cFold = CO.foldIndic(cCoreStr);
 
-    const rawSim  = Math.max(CO.ratio(qFlat, cFlat), CO.jaroWinkler(qFlat, cFlat));
+    /* ORDER GUARD.
+
+       rawSim and foldSim compare the core tokens CONCATENATED, so they are
+       order-sensitive, and between them they carry 0.70 of the mix against
+       0.30 for the order-independent tokenSetScore. A registry that prints
+       "SELVAN T.THAMARAI" for "T. Thamarai Selvan" — surname first, which is a
+       routine convention — therefore scored 0.57 and fell below the 0.72 core
+       gate, and the matter was dropped. Under C4 that is the expensive
+       direction of error: a wrongly shown row costs a glance, a wrongly
+       dropped row costs an appearance.
+
+       So each measure is taken as the better of the in-order and the
+       token-sorted comparison. This is a pure Math.max over an additional
+       candidate, so NO SCORE CAN EVER FALL and nothing that matched before can
+       stop matching. For a single-token core name the sorted form is the
+       in-order form, which is every case in T1, T2, T4 and T6.
+
+       Measured over 16,276 pairs — the reference corpus plus every distinct
+       string extracted from the synthetic corpus and all four real HR&CE
+       files — it changes five tiers: it recovers P17, it promotes D10
+       ("T.SELVAN" against "T. Thamarai Selvan") from none to review, and it
+       moves three unrelated names into the hidden weak tier. See
+       docs/measurements.md §5. T0 asserts the divergence from
+       src/engine-reference.js is exactly this and nothing else. */
+    const qSort = [...q.core].sort().join(' '), cSort = [...c.core].sort().join(' ');
+    const qSortFlat = qSort.replace(/ /g, ''), cSortFlat = cSort.replace(/ /g, '');
+    const best2 = (a1, b1, a2, b2) => Math.max(
+      CO.ratio(a1, b1), CO.jaroWinkler(a1, b1),
+      CO.ratio(a2, b2), CO.jaroWinkler(a2, b2));
+
+    const qFold = CO.foldIndic(qCoreStr), cFold = CO.foldIndic(cCoreStr);
+    const qFoldSort = CO.foldIndic(qSort), cFoldSort = CO.foldIndic(cSort);
+
+    const rawSim  = best2(qFlat, cFlat, qSortFlat, cSortFlat);
     const foldSim = qFold && cFold
-      ? Math.max(CO.ratio(qFold, cFold), CO.jaroWinkler(qFold, cFold))
+      ? best2(qFold, cFold, qFoldSort || qFold, cFoldSort || cFold)
       : 0;
 
     /* A join or a split — "Thamarai Selvan" against "Thamaraiselvan" — is not
@@ -3011,7 +3055,86 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       ]);
     },
 
+    /* The bound actually used around the engine, and it watches for SILENCE
+       rather than counting down to a deadline. See the note on OCR_SILENCE_MS
+       in 00-config.js: a single long timer is unreliable in a background tab,
+       and a user who switches away mid-run would get no bound at all.
+
+       Every reading comes from Date.now(), so a throttled or postponed
+       interval can only delay detection — it can never fire early on a page
+       that was quietly making progress. */
+    _tick: 0,
+    _pending: new Set(),
+
+    watch(promise, what, hardMs) {
+      const HARD = hardMs || CO.OCR_PAGE_TIMEOUT_MS;
+      const t0 = Date.now();
+      this._tick = t0;
+      const self = this;
+
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const stop = () => { settled = true; clearInterval(iv); self._pending.delete(abort); };
+
+        /* The escape hatch that does not depend on a timer at all. A browser
+           freezes timers in a tab that has been hidden a long while — measured
+           here: a 4-second interval that had not run for 164 seconds — so
+           neither the silence budget nor the hard ceiling can be relied on
+           while nobody is looking. Cancelling is driven by the user, and a
+           user who is looking at the page is a user whose timers are running. */
+        const abort = why => { if (settled) return; stop(); reject(new Error(why)); };
+        this._pending.add(abort);
+
+        const iv = setInterval(() => {
+          if (settled) return;
+          const silent = Date.now() - self._tick, total = Date.now() - t0;
+          if (silent >= CO.OCR_SILENCE_MS)
+            abort(`${what} stopped responding — nothing for ${Math.round(silent / 1000)} seconds`);
+          else if (total >= HARD)
+            abort(`${what} gave up after ${Math.round(total / 1000)} seconds`);
+        }, CO.OCR_WATCH_INTERVAL_MS);
+
+        promise.then(v => { if (!settled) { stop(); resolve(v); } },
+                     e => { if (!settled) { stop(); reject(e); } });
+      });
+    },
+
+    /* Abandon whatever OCR is doing, now. Terminating the worker is what
+       actually stops a wedged job; rejecting the pending promises is what
+       releases the run loop that is awaiting it. */
+    cancelAll(why) {
+      const reason = why || 'Reading was stopped.';
+      for (const abort of [...this._pending]) abort(reason);
+      this._pending.clear();
+      this.shutdown();
+    },
+
+    /* A promise that rejects the moment cancelAll fires, whatever OCR happens
+       to be doing. Raced against readPage at the call site, so the run loop is
+       released even when the wedge is somewhere readPage does not own — a
+       canvas render that never completes in a frozen tab, say, which is not a
+       tesseract call at all and cannot be bounded from inside. */
+    cancelSignal() {
+      const self = this;
+      return new Promise((_, reject) => {
+        const abort = why => { self._pending.delete(abort); reject(new Error(why)); };
+        self._pending.add(abort);
+      });
+    },
+
+    /* Where every progress event from the engine lands. It both feeds the
+       progress panel and keeps the watchdog quiet, and it is stored on the
+       object rather than captured at createWorker time — the logger is bound
+       once for the worker's whole life, so a callback captured from the first
+       page would leave every later page reporting nothing. */
+    _onProgress: null,
+    _log(m) {
+      this._tick = Date.now();
+      if (this._onProgress && m && m.status) this._onProgress(m);
+    },
+
     async ensure(onProgress) {
+      if (onProgress) this._onProgress = onProgress;
       if (this.worker) return this.worker;
       if (this.state === 'failed') return null;
       const why = this.unavailableReason();
@@ -3019,13 +3142,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       try {
         await this.loadEngine();
         const P = CO.OCR_PATHS;
-        this.worker = await this.withTimeout(globalThis.Tesseract.createWorker(P.langCode, 1, {
+        this.worker = await this.watch(globalThis.Tesseract.createWorker(P.langCode, 1, {
           workerPath: this.abs(P.worker),
           corePath: this.abs((await this.simdSupported()) ? P.coreSimd : P.core),
           langPath: this.abs(P.lang),
           cacheMethod: 'none',
-          logger: m => { if (onProgress && m.status) onProgress(m); }
-        }), CO.OCR_START_TIMEOUT_MS, 'Starting the offline text engine');
+          logger: m => this._log(m)
+        }), 'Starting the offline text engine', CO.OCR_START_TIMEOUT_MS);
         this.state = 'ready';
         return this.worker;
       } catch (e) {
@@ -3060,7 +3183,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
 
       let res;
       try {
-        res = await this.withTimeout(w.recognize(canvas), CO.OCR_PAGE_TIMEOUT_MS,
+        res = await this.watch(w.recognize(canvas),
           `Picture-reading page ${pdfPage.pageNumber || ''}`.trim());
       } catch (e) {
         /* Give up on this page, not on the run. The page is reported by name
@@ -3169,6 +3292,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
     const roster   = opts.roster || [];
     const thorough = opts.thorough !== false;
     const report   = opts.onProgress || (() => {});
+    /* Checked between pages so a stopped run finishes with what it has read so
+       far rather than throwing it away. Half a list is worth more than none. */
+    const stopped  = opts.stopped || (() => false);
     const lib      = await pdfio.ensure();
 
     const result = {
@@ -3191,6 +3317,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
 
     /* ---- phase 1: read every page, OCR the ones with no text layer ---- */
     for (let n = 1; n <= doc.numPages; n++) {
+      if (stopped()) {
+        result.notes.push({ level: 'warn', text:
+          `${fileRec.name}: you stopped the run after page ${n - 1} of ${doc.numPages}. ` +
+          'Everything read up to that point is below; the rest of the file was not searched.' });
+        break;
+      }
       let page;
       try {
         page = await pdfio.readPage(doc, n, lib);
@@ -3201,8 +3333,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       }
 
       if (page.charCount < X.OCR_MIN_CHARS) {
-        const spans = await ocr.readPage(page._pdfPage, page.height,
-          m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m }));
+        const spans = await Promise.race([
+          ocr.readPage(page._pdfPage, page.height,
+            m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m })),
+          ocr.cancelSignal()
+        ]).catch(() => null);
         if (spans) {
           page.spans = spans; page.wasOCR = true; finishPage(page);
           result.ocrPages.push(n);
@@ -3215,8 +3350,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       } else if (thorough && page.charCount < X.THIN_TEXT_CHARS) {
         /* §5.11 thorough mode: read a thin page a second way and merge, so a
            partly-broken text layer cannot hide a listing. */
-        const spans = await ocr.readPage(page._pdfPage, page.height,
-          m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m }));
+        const spans = await Promise.race([
+          ocr.readPage(page._pdfPage, page.height,
+            m => report({ phase: 'ocr', file: fileRec.name, page: n, detail: m })),
+          ocr.cancelSignal()
+        ]).catch(() => null);
         if (spans && spans.length) {
           page.ocrSpans = spans;
           page.spans = page.spans.concat(spans);
@@ -5071,18 +5209,21 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
      ================================================================== */
   async function run() {
     if (!canRun() || S.running) return;
-    S.running = true; S.error = null; S.results = null; S.progress = { pages: 0, of: 0, ocr: 0, items: 0, file: '', t0: Date.now() };
+    S.running = true; S.stopRequested = false; S.error = null; S.results = null;
+    S.progress = { pages: 0, of: 0, ocr: 0, items: 0, file: '', t0: Date.now() };
     render();
     say('Reading. This runs entirely on this device.');
 
     try {
       const docs = [];
       for (const f of S.files) {
+        if (S.stopRequested) break;
         S.progress.file = f.name;
         const d = await CO.extract.readDocument(
           { name: f.name, bytes: f.bytes, official: f.official, typeOverride: f.typeOverride },
           {
             roster: S.advocates, thorough: S.thorough,
+            stopped: () => S.stopRequested,
             onProgress: p => {
               if (p.phase === 'read') { S.progress.pages++; S.progress.of = p.of; }
               if (p.phase === 'ocr' && p.detail && p.detail.status) {
@@ -5157,7 +5298,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
         el('span', {}, 'items found ', el('b', { id: 'co-p-items', text: String(p.items) })),
         el('span', {}, 'elapsed ', el('b', { id: 'co-p-el', text: '0s' }))),
       el('div', { id: 'co-p-ocrline', class: 'st',
-        style: 'margin-top:8px;color:#E0C08A;display:block' }));
+        style: 'margin-top:8px;color:#E0C08A;display:block' }),
+      /* Nobody should ever be trapped watching a bar that is not moving.
+         Stopping keeps everything read so far, and says what was skipped. */
+      el('div', { style: 'margin-top:12px' },
+        el('button', { class: 'btn ghost sm', id: 'co-stop',
+          onclick: () => {
+            S.stopRequested = true;
+            CO.extract.ocr.cancelAll('You stopped the run.');
+            say('Stopping. Everything already read will be kept.');
+            const b = $('co-stop');
+            if (b) { b.disabled = true; b.textContent = 'Stopping…'; }
+          } }, 'Stop and keep what has been read')));
   }
 
   /* ======================================================================
