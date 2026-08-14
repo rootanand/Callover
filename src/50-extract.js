@@ -1054,6 +1054,29 @@
       } catch { return false; }
     },
 
+    /* The paths in 00-config.js are relative, so the privacy tests can read
+       them at a glance and see that nothing points off-origin. They have to be
+       made absolute before tesseract sees them: its worker resolves corePath
+       and langPath with importScripts and fetch from inside a blob worker,
+       where a bare "vendor/..." has no base to resolve against and throws
+       "The URL is invalid". Resolving here against the page keeps them
+       same-origin and keeps the declaration honest. */
+    abs(p) {
+      try { return new URL(p, document.baseURI).href; } catch { return p; }
+    },
+
+    /* Never await an OCR promise without a bound. A terminated or wedged
+       worker leaves its promise pending forever, and the run would sit on a
+       progress bar that never moves. */
+    withTimeout(promise, ms, what) {
+      let timer;
+      return Promise.race([
+        promise.finally(() => clearTimeout(timer)),
+        new Promise((_, reject) => { timer = setTimeout(
+          () => reject(new Error(`${what} gave up after ${Math.round(ms / 1000)} seconds`)), ms); })
+      ]);
+    },
+
     async ensure(onProgress) {
       if (this.worker) return this.worker;
       if (this.state === 'failed') return null;
@@ -1062,13 +1085,13 @@
       try {
         await this.loadEngine();
         const P = CO.OCR_PATHS;
-        this.worker = await globalThis.Tesseract.createWorker(P.langCode, 1, {
-          workerPath: P.worker,
-          corePath: (await this.simdSupported()) ? P.coreSimd : P.core,
-          langPath: P.lang,
+        this.worker = await this.withTimeout(globalThis.Tesseract.createWorker(P.langCode, 1, {
+          workerPath: this.abs(P.worker),
+          corePath: this.abs((await this.simdSupported()) ? P.coreSimd : P.core),
+          langPath: this.abs(P.lang),
           cacheMethod: 'none',
           logger: m => { if (onProgress && m.status) onProgress(m); }
-        });
+        }), CO.OCR_START_TIMEOUT_MS, 'Starting the offline text engine');
         this.state = 'ready';
         return this.worker;
       } catch (e) {
@@ -1081,7 +1104,9 @@
     /* Render at 2x, binarise, recognise, and hand back spans in PDF space so
        an OCR'd page is indistinguishable downstream from a text-layer one. */
     async readPage(pdfPage, pageHeight, onProgress) {
-      const w = await this.ensure(onProgress);
+      let w = null;
+      try { w = await this.ensure(onProgress); }
+      catch (e) { this.state = 'failed'; this.reason = e.message; return null; }
       if (!w) return null;
       const scale = X.OCR_SCALE;
       const vp = pdfPage.getViewport({ scale });
@@ -1099,7 +1124,19 @@
       }
       ctx.putImageData(img, 0, 0);
 
-      const res = await w.recognize(canvas);
+      let res;
+      try {
+        res = await this.withTimeout(w.recognize(canvas), CO.OCR_PAGE_TIMEOUT_MS,
+          `Picture-reading page ${pdfPage.pageNumber || ''}`.trim());
+      } catch (e) {
+        /* Give up on this page, not on the run. The page is reported by name
+           in "Pages I could not read cleanly", and the worker is discarded
+           because a wedged one will only wedge again. */
+        this.reason = e.message + '. The rest of the file was read normally.';
+        await this.shutdown();
+        this.state = 'failed';
+        return null;
+      }
       const words = (res && res.data && res.data.words) || [];
       return words.filter(wd => wd.text && wd.text.trim()).map(wd => ({
         x: wd.bbox.x0 / scale,

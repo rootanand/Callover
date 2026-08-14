@@ -435,7 +435,10 @@
      of them appears in the source. (Decision D17.) */
   CO.BANNED_WORDS = ['bank-grade', 'military-grade', 'enterprise security', 'secure by design'];
 
-  /* Where OCR is loaded from, lazily, on first need only (§2.1). */
+  /* Where OCR is loaded from, lazily, on first need only (§2.1).
+     These stay RELATIVE so it is obvious at a glance that nothing points off
+     this origin; they are resolved against the page before tesseract sees
+     them, because its worker cannot resolve a bare path. */
   CO.OCR_PATHS = {
     worker:   'vendor/tesseract-worker.min.js',
     coreSimd: 'vendor/tesseract-core-simd.wasm.js',
@@ -443,6 +446,21 @@
     lang:     'vendor/',
     langCode: 'eng'
   };
+
+  /* How long one page may spend in OCR before Callover gives up on it.
+
+     A wedged worker is worse than a failed one: without this the whole run
+     hangs on a progress bar that never moves, and §8.7 requires a page that
+     could not be read to be NAMED, not to swallow the run.
+
+     Deliberately generous. Measured: a dense A4 landscape HR&CE table at 2x
+     takes 128 seconds on this machine. Timing out a page that would have
+     succeeded loses a listing, and a missed listing costs an appearance — so
+     the budget is set well above the worst case actually observed, and the
+     progress panel reports what OCR is doing so a slow page never reads as a
+     hang. */
+  CO.OCR_PAGE_TIMEOUT_MS = 300000;
+  CO.OCR_START_TIMEOUT_MS = 60000;
 
 })(typeof globalThis !== 'undefined'
      ? (globalThis.Callover = globalThis.Callover || {})

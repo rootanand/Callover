@@ -1081,6 +1081,21 @@ group('T7  OCR pipeline');
              typeof CO.extract.ocr.loadEngine === 'function' &&
              CO.extract.classifyPage({ charCount: 5, hSegs: [], vSegs: [] }) === 'ocr',
     'the OCR route exists and a page under 40 characters is sent to it');
+
+  /* A wedged worker must not swallow the run. §8.7 requires a page that could
+     not be read to be named; a promise that never settles names nothing. */
+  {
+    const ocr = CO.extract.ocr;
+    let threw = null;
+    try { await ocr.withTimeout(new Promise(() => {}), 30, 'Picture-reading page 4'); }
+    catch (e) { threw = e.message; }
+    t('T7-05', threw && /page 4/.test(threw) && /gave up/.test(threw),
+      `an OCR call that never settles is abandoned and named — "${threw}"`);
+    const quick = await ocr.withTimeout(Promise.resolve('done'), 5000, 'x');
+    t('T7-06', quick === 'done' && CO.OCR_PAGE_TIMEOUT_MS > 60000 && CO.OCR_START_TIMEOUT_MS > 10000,
+      `a call that settles in time is untouched; page budget ${CO.OCR_PAGE_TIMEOUT_MS / 1000}s, ` +
+      `start budget ${CO.OCR_START_TIMEOUT_MS / 1000}s`);
+  }
   t('T7-04', synthDoc.items.every(i => Array.isArray(i.ocrPages)),
     'ocrPages is populated on every result');
   for (const id of ['T7-01', 'T7-02', 'T7-03'])

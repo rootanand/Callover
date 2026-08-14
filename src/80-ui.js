@@ -400,7 +400,13 @@
             roster: S.advocates, thorough: S.thorough,
             onProgress: p => {
               if (p.phase === 'read') { S.progress.pages++; S.progress.of = p.of; }
-              if (p.phase === 'ocr' && p.detail && p.detail.status === 'recognizing text') S.progress.ocrLive = p.page;
+              if (p.phase === 'ocr' && p.detail && p.detail.status) {
+                /* A dense page can take two minutes to picture-read. Saying so
+                   is the difference between "slow" and "broken". */
+                S.progress.ocrPage = p.page;
+                S.progress.ocrStatus = p.detail.status;
+                S.progress.ocrPct = typeof p.detail.progress === 'number' ? p.detail.progress : null;
+              }
               if (p.phase === 'match') S.progress.items = p.items;
               paintProgress();
             }
@@ -443,6 +449,12 @@
     set('co-p-pages', p.pages); set('co-p-ocr', p.ocr); set('co-p-items', p.items);
     set('co-p-el', Math.round((Date.now() - p.t0) / 1000) + 's');
     const f = $('co-p-file'); if (f) f.textContent = p.file;
+    const o = $('co-p-ocrline');
+    if (o) o.textContent = p.ocrStatus
+      ? `Page ${p.ocrPage} has no text layer, so it is being picture-read — ${p.ocrStatus}` +
+        (p.ocrPct != null ? ` ${Math.round(p.ocrPct * 100)}%` : '') +
+        '. A dense page can take a couple of minutes.'
+      : '';
   }
 
   function progressPanel() {
@@ -458,7 +470,9 @@
         el('span', {}, 'pages read ', el('b', { id: 'co-p-pages', text: String(p.pages) })),
         el('span', {}, 'picture-read ', el('b', { id: 'co-p-ocr', text: String(p.ocr) })),
         el('span', {}, 'items found ', el('b', { id: 'co-p-items', text: String(p.items) })),
-        el('span', {}, 'elapsed ', el('b', { id: 'co-p-el', text: '0s' }))));
+        el('span', {}, 'elapsed ', el('b', { id: 'co-p-el', text: '0s' }))),
+      el('div', { id: 'co-p-ocrline', class: 'st',
+        style: 'margin-top:8px;color:#E0C08A;display:block' }));
   }
 
   /* ======================================================================
