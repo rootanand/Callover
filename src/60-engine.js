@@ -160,8 +160,22 @@
     /* §4.7 cluster — two or more distinct firm advocates at review or better
        on one item. Chambers are printed together, so the firm's own roster
        becomes a disambiguator. Verified in the real list: E.SRIKANTH appears
-       alongside E.GANESH in two of his three items. (Decision D7.) */
-    const strong = [...perAdvocate.values()].filter(h => CO.tierRank(h.tier) >= CO.tierRank('review'));
+       alongside E.GANESH in two of his three items. (Decision D7.)
+
+       COUNSEL ONLY, and on both sides of the rule — a party hit neither counts
+       towards a cluster nor is promoted by one.
+
+       D7's reasoning is precisely that CHAMBERS ARE PRINTED TOGETHER, which is
+       a fact about counsel columns and not about parties. Two party names that
+       happen to resemble two firm advocates is coincidence, and treating it as
+       corroboration promoted "V. Kavi Ganesan" into a confirmed match for
+       E. Ganesh — along with "Balagandhi (a)" for A. Balaguru and
+       "V.Chandra And 5 others" for V. Chandrasekar. A party still tiers
+       normally on its own evidence (§5.8a.3), and a partner's own litigation
+       is still caught, because what identifies that is the case number in the
+       firm's register, which is decisive by itself (D6). */
+    const strong = [...perAdvocate.values()].filter(h =>
+      h.printed.matchRole === 'counsel' && CO.tierRank(h.tier) >= CO.tierRank('review'));
     const cluster = strong.length >= 2 ? {
       kind: 'cluster', weight: CO.SIGNAL_WEIGHT.cluster, score: CO.SIGNAL_WEIGHT.cluster,
       names: strong.map(h => h.advocate.name),
@@ -195,7 +209,7 @@
         if (tier === 'weak') tier = 'review';
         else if (tier === 'review') tier = 'auto';
       }
-      if (cluster && hit) {
+      if (cluster && hit && hit.printed.matchRole === 'counsel') {
         signals.push(cluster);
         if (tier === 'review') tier = 'auto';
       }
@@ -223,6 +237,29 @@
       let capped = tier;
       if (hit && hit.printed.source === 'B' && hit.printed.matchRole === 'unplaced' && !csig && !nsig)
         capped = CO.capTier(capped, 'review');
+
+      /* A PARTY resembling one of the firm's advocates, on the name alone, is
+         held to the weak tier.
+
+         Party cells are full of ordinary personal names, so a chance
+         resemblance is common — measured across the four HR&CE lists, the name
+         path alone produced "V. Chandrakasan" and "V.Chandra And 5 others" for
+         V. Chandrasekar, "Balagandhi (a)" for A. Balaguru and a bare "Ganesan"
+         for E. Ganesh. Nine such questions a day, none of them real, is how a
+         confirm queue stops being read.
+
+         This does NOT lose a partner's own litigation, which is the case
+         §5.8a.3 exists to protect. What identifies that is the case number in
+         the firm's own register, and that is decisive by itself (D6) — both
+         planted instances, P18 CC/212/2026 and P20 CC/213/2026, carry a
+         caseNumber signal and stay at auto. The cap only bites where the ONLY
+         evidence is that a stranger's name looks a little like an advocate's.
+
+         Nothing is discarded either: weak is retained and one toggle away
+         (C4, D4). See docs/measurements.md §7. */
+      if (hit && hit.printed.matchRole === 'party' && !csig && !nsig && !esig)
+        capped = CO.capTier(capped, 'weak');
+
       if (lowPage) capped = CO.capTier(capped, 'review');
       if (capped === 'none') return null;
 

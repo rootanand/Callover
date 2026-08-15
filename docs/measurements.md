@@ -211,3 +211,77 @@ from the case number when no advocate name can be read — is proven by **P19**
 `advocate: null` on a `caseNumber` signal alone. The test asserts the mechanism
 on P19 and asserts P18's substance: matched, `caseNumber` decisive, and
 `matchRole` never reported as `counsel`.
+
+---
+
+## 7. A party is not corroborating evidence — T18
+
+Reported from real use: **"V. Kavi Ganesan" was being shown as a confirmed match
+for "E. Ganesh"**, on the strength of being a *party* whose name looks a little
+like his. Two separate faults fed it.
+
+### The name score was never the problem
+
+| | |
+|---|---|
+| `E. Ganesh` vs `V. Kavi Ganesan` | core 0.747, combined **0.497** → `none` |
+
+It does not place at all on its own. Everything that follows is about what was
+added on top.
+
+### Fault 1 — the cluster signal was promoting parties
+
+§4.7's cluster promotes `review` → `auto` when two or more firm advocates appear
+on one item, and it was counting and promoting hits of **any** role. But D7's
+reasoning is precisely that **chambers are printed together** — a fact about
+counsel columns. Two *parties* resembling two firm advocates is coincidence, not
+corroboration.
+
+Measured across the four HR&CE lists, that alone was manufacturing four
+confirmed matches out of nothing:
+
+| Printed, as a party | Promoted to auto for |
+|---|---|
+| `Ganesan` | E. Ganesh |
+| `Balagandhi (a)` | A. Balaguru |
+| `4.C.Chandrasekar` | V. Chandrasekar |
+| `V.Chandra And 5 others` | V. Chandrasekar |
+
+The cluster now counts and promotes **counsel only**, on both sides of the rule.
+
+### Fault 2 — a party on the name alone could still reach `review`
+
+With the cluster fixed, nine name-only party matches remained in the confirm
+queue, none of them real. Party cells are full of ordinary personal names, so a
+chance resemblance is common, and nine false questions a day is how a confirm
+queue stops being read.
+
+A party match whose **only** evidence is the name is now held to the weak tier.
+
+### Why this does not lose a partner's own litigation
+
+That case — the one §5.8a.3 exists to protect — is identified by the **case
+number in the firm's own register**, which is decisive by itself (D6). Both
+planted instances carry a `caseNumber` signal and are untouched:
+
+| | Signals | Tier |
+|---|---|---|
+| P18 `CC/212/2026` — `E.GANESAN` | advocateName, **caseNumber**, partyName | `auto` |
+| P20 `CC/213/2026` — `E.GANESH` | advocateName, **caseNumber**, partyName | `auto` |
+
+The cap bites only where the sole evidence is that a stranger's name looks a
+little like an advocate's. And nothing is discarded — weak is retained and one
+toggle away (C4, D4).
+
+### This is a deliberate departure from §5.8a.3
+
+That section says counsel and party *"both tier normally"*. They no longer do:
+an uncorroborated party is capped. The departure honours the section's stated
+**intent** — that a partner's own litigation must still be caught, which it is,
+at `auto`, via the register — while removing the side effect it did not
+anticipate, which was strangers' names filling the confirm queue.
+
+T18 holds all of it: the reported pair scores `none`; no cluster signal ever
+attaches to a party; every name-only party match sits at weak and none is
+dropped; both partner-as-party matters still reach `auto` on their case number;
+and the cluster still promotes counsel, with P01's four-advocate cluster intact.

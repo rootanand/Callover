@@ -1220,6 +1220,65 @@ group('T17  a file survives being opened twice');
 }
 
 /* ==========================================================================
+   T18 — a party who merely resembles an advocate is not a confirmed match.
+
+   Reported from real use: "V. Kavi Ganesan" was being presented as a confirmed
+   match for E. Ganesh, on the strength of being a PARTY whose name looks a bit
+   like his. Two separate faults fed it, and both are held here.
+   ========================================================================== */
+group('T18  a party is not corroborating evidence');
+{
+  const roster = loadRoster(CO, 'advocates-hrce.csv');
+  const reg = loadRegister(CO, 'cases-hrce.csv');
+  const docs = [];
+  for (const p of ['hrce/Causelistdated11_08_2026.pdf', 'hrce/Causelistdated04_08_2026.pdf',
+                   'hrce/Causelistdated21_07_2026.pdf', 'hrce/AdjournmentNoticeNo_16.pdf'])
+    docs.push(await readPdf(CO, p, { roster }));
+  const run = CO.engine.run({ advocates: roster, register: reg.cases, documents: docs, date: '2026-08-11' });
+  const HARD = new Set(['caseNumber', 'cnr', 'enrolment']);
+  const party = run.matches.filter(m => m.matchRole === 'party');
+
+  /* The reported string itself: on the name alone it should not place at all. */
+  const kavi = CO.nameScore('E. Ganesh', 'V. Kavi Ganesan');
+  t('T18-01', kavi && CO.classify(kavi, {}) === 'none',
+    `"V. Kavi Ganesan" against "E. Ganesh" scores ${kavi.combined.toFixed(3)} — ` +
+    `${CO.classify(kavi, {})} (core ${kavi.core.toFixed(3)}, initials ${kavi.initials.state})`);
+
+  /* Fault 1 — the cluster signal was promoting party hits to auto. D7's whole
+     reasoning is that CHAMBERS ARE PRINTED TOGETHER, which is about counsel
+     columns; two parties resembling two advocates is coincidence. */
+  const clusteredParty = party.filter(m => m.signals.some(s => s.kind === 'cluster'));
+  t('T18-02', clusteredParty.length === 0,
+    `the cluster signal never attaches to a party hit (${party.length} party matches examined)` +
+    (clusteredParty.length ? ` — LEAKED: ${clusteredParty.map(m => `"${m.matchedText}"`).join(', ')}` : ''));
+
+  /* Fault 2 — a party on the name alone is held to the weak tier. */
+  const nameOnly = party.filter(m => !m.signals.some(s => HARD.has(s.kind)));
+  const tooHigh = nameOnly.filter(m => CO.tierRank(m.tier) > CO.tierRank('weak'));
+  t('T18-03', nameOnly.length > 0 && tooHigh.length === 0,
+    `${nameOnly.length} name-only party matches, all held at weak` +
+    (tooHigh.length ? ` — ABOVE WEAK: ${tooHigh.map(m => `"${m.matchedText}"→${m.tier}`).join(', ')}` : ''));
+
+  /* …but nothing is discarded (C4, D4). */
+  t('T18-04', nameOnly.every(m => m.tier === 'weak'),
+    'and none is dropped — every one is retained in the weak tier, one toggle away');
+
+  /* The case the cap must NOT break: a partner's own litigation, identified by
+     the case number in the firm's own register (D6, §5.8a.3). */
+  const own = synth.matches.filter(m => m.matchRole === 'party');
+  const ownAuto = own.filter(m => m.tier === 'auto' && m.signals.some(s => s.kind === 'caseNumber'));
+  t('T18-05', own.length >= 2 && ownAuto.length === own.length,
+    `a partner's own litigation still reaches auto on its case number: ` +
+    own.map(m => `${m.item.caseKeys[0]} "${m.matchedText}" [${m.tier}]`).join(', '));
+
+  /* And the cluster still does its job where D7 intended it. */
+  const p01 = synth.matches.filter(m => m.item.caseKeys.includes(CO.normCaseNo('WA/2025/2026')));
+  const clustered = p01.filter(m => m.signals.some(s => s.kind === 'cluster'));
+  t('T18-06', clustered.length >= 2 && clustered.every(m => m.matchRole === 'counsel'),
+    `the cluster still promotes counsel — P01 has ${clustered.length} clustered counsel matches`);
+}
+
+/* ==========================================================================
    T7 — OCR pipeline (§10.7). Needs a browser: tesseract.js is a Worker plus
    WebAssembly, and rasterising needs a canvas.
    ========================================================================== */
