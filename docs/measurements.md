@@ -354,3 +354,74 @@ the set rather than a single change:
   work had started costing recall — the expensive direction under C4.
 - **T0-05** — still the strongest guarantee, and still holds across all three
   changes: **no tier ever falls.**
+
+---
+
+## 9. A register does not have to look like the fixture — T19
+
+Asked from real use: *"if I upload a file with client name, case number, mobile
+number and cause title, that should be allowed and enough — you must not expect
+the same structure as the file I uploaded?"*
+
+It must be enough. It was not, and the reason nothing caught it is worth
+recording: **`fixtures/cases.csv` keeps `CaseType`, `CaseNo` and `Year` in three
+separate columns**, so the entire suite only ever exercised that shape. The far
+commoner one — the whole case number in a single cell — was broken.
+
+### Two faults, and the first was silent
+
+**1. `normCaseNo` welded the type to the number.** Stripping dots first is what
+makes `C.C.No.212/2026` work (T3-05 locks it), but it also turns
+`R.P.66/2022` into `RP66 2022`, and the pattern, with no separator to go on,
+split that as type `RP6`, number `6`:
+
+| Register cell | Key built | Should be |
+|---|---|---|
+| `R.P.66/2022` | `RP6/6/2022` | `RP/66/2022` |
+| `R.P.541/2022` | `RP54/1/2022` | `RP/541/2022` |
+
+Every row got a garbage key, so **not one case number matched** — and because
+the case number is the decisive signal (D6), such a firm loses the whole benefit
+of supplying a register at all. A case type is alphabetic in every Indian forum,
+so a letter run immediately followed by a digit run is unambiguously a type
+meeting its number, and is now separated again.
+
+**2. `detectColumns` assigned fields in declaration order.** Each field claimed
+the best column not already taken, and `caseType` is declared before
+`causeTitle` — so a register headed `Cause Title` had that column taken by
+`caseType`, and the real cause title vanished from every confirm card. Columns
+are now assigned by **best pairing overall**: `Cause Title` scores 1.00 against
+`causeTitle` and about 0.79 against `caseType`, so it goes where it belongs
+whatever the declaration order.
+
+### Measured, against the real 11.08 HR&CE list
+
+A four-column register — `Client Name, Case Number, Mobile Number, Cause Title`:
+
+| | Before | After |
+|---|---|---|
+| Keys built | `RP6/6/2022`, `RP54/1/2022`, `RP50/2/2023` | `RP/66/2022`, `RP/541/2022`, `RP/502/2023` |
+| Cause title mapped | no — taken by `caseType` | yes |
+| **Matters identified by case number** | **0** | **3, all auto** |
+
+T19 pins the contract: four columns are enough; `Party / Case No / Phone /
+Title` works; column order does not matter; a case number and nothing else
+works; the three-column fixture shape still works; and the cause title reaches
+the evidence table.
+
+### The one limit, stated rather than guessed
+
+A bare number with **no case type** — `66/2022` — is left unmatched (T19-07).
+It could be an `R.P.` or an `A.P.`, and guessing a forum to manufacture a match
+would be worse than not matching: it is the one place where a silent wrong
+answer costs more than a missing one.
+
+### What this did to T0
+
+`normCaseNo` is a fourth deliberate departure from the reference, which has the
+same fault. T0-01 no longer demands identity: it allows a divergence **only**
+where the reference produced a mis-split key and the port produces a canonical
+one, and T0-01b asserts the correction actually corrects. The OCR reading of a
+glued string is judged by whether its clean reading diverged, because the
+reference's `RPG/6/2022` is well-formed yet wrong — it took the `6` into the
+type slot and folded it to `G`.

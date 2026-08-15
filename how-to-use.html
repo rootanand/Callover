@@ -357,6 +357,40 @@ which side you are on, the next stage. Upload it as <code>.csv</code> or Excel, 
 shape it already has — Callover reads the columns it recognises and keeps every other column
 untouched so your exports come back with your own data still in them.</p>
 
+<h3>It does not have to look like anybody else's</h3>
+
+<p><strong>Four columns are plenty</strong>, and the headings can be your own words:</p>
+
+<div class="screen plain">
+  <div class="cap">Enough to work</div>
+  <div class="body" style="font-family:var(--mono);font-size:13px;line-height:1.8;color:var(--ink2)">
+    Client Name, Case Number, Mobile Number, Cause Title<br>
+    K.Jegan, R.P.66/2022, 9840920001, K.Jegan -Vs- J.C/E.O and others
+  </div>
+</div>
+
+<ul>
+  <li><strong>Any headings.</strong> <code>Party</code> or <code>Client</code>,
+    <code>Case No</code> or <code>Case Number</code>, <code>Phone</code> or
+    <code>Mobile</code>, <code>Title</code> or <code>Cause Title</code> — all recognised.</li>
+  <li><strong>Any order.</strong> Callover works out which column is which and shows you
+    what it decided before you run.</li>
+  <li><strong>The case number can be whole</strong> — <code>R.P.66/2022</code> in one cell —
+    or split across <code>CaseType</code>, <code>CaseNo</code> and <code>Year</code>. Both
+    work.</li>
+  <li><strong>Extra columns are welcome</strong> and are kept untouched. They come back in
+    your exports exactly as you sent them.</li>
+  <li><strong>Missing columns are fine.</strong> Anything absent simply shows as
+    <em>not in register</em> on the cards, so you can see what could not be checked.</li>
+</ul>
+
+<div class="warn">
+  <b>The one thing that must be complete is the case number's type.</b>
+  <code>R.P.66/2022</code> matches; a bare <code>66/2022</code> cannot, because it might be
+  an R.P. or an A.P. and Callover will not guess a forum to manufacture a match. If your
+  register keeps the type in a separate column, that is fine — just include that column.
+</div>
+
 <h3>What it buys you</h3>
 
 <table>

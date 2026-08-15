@@ -56,18 +56,36 @@
   /* Map the header row onto our fields. Returns { map, headerRow, confidence }.
      The mapping is ALWAYS shown to the user and always overridable before the
      run (§6.1) — a silent mis-mapping is worse than no mapping. */
+  /* Assign columns to fields by BEST PAIRING OVERALL, not field by field in
+     declaration order.
+
+     The old loop walked the spec in order and let each field claim the best
+     column not already taken. Because caseType is declared before causeTitle,
+     a register headed "Cause Title" had that column claimed by caseType — the
+     two strings are similar enough to pass the threshold — and the real cause
+     title was then left unmapped, disappearing from every confirm card.
+
+     Scoring every (field, column) pair and taking them strongest-first means a
+     column goes to the field that actually wants it most: "Cause Title" scores
+     1.00 against causeTitle and about 0.79 against caseType, so causeTitle now
+     wins it regardless of declaration order. */
   function detectColumns(rows, spec) {
     if (!rows.length) return { map: {}, headerRow: -1, scores: {} };
     const head = rows[0];
-    const map = {}, scores = {};
-    for (const [field, patterns] of Object.entries(spec)) {
-      let bestI = -1, bestS = 0;
+    const pairs = [];
+    for (const [field, patterns] of Object.entries(spec))
       head.forEach((cell, i) => {
-        if (Object.values(map).includes(i)) return;
         const s = headerScore(cell, patterns);
-        if (s > bestS) { bestS = s; bestI = i; }
+        if (s >= CO.HEADER_MATCH_MIN) pairs.push({ field, i, s });
       });
-      if (bestS >= CO.HEADER_MATCH_MIN) { map[field] = bestI; scores[field] = bestS; }
+    /* Strongest pairing first; ties keep declaration order so the result is
+       stable for a given file rather than depending on object iteration. */
+    pairs.sort((a, b) => b.s - a.s);
+
+    const map = {}, scores = {}, usedCol = new Set();
+    for (const p of pairs) {
+      if (map[p.field] != null || usedCol.has(p.i)) continue;
+      map[p.field] = p.i; scores[p.field] = p.s; usedCol.add(p.i);
     }
     return { map, headerRow: Object.keys(map).length ? 0 : -1, scores };
   }

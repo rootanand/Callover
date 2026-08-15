@@ -69,6 +69,25 @@
     s = s.replace(/\b(OF|NO|NOS|SL|CASE|YEAR)\b/g, ' ');
     s = s.replace(/NO(?=\d)/g, ' ');
     s = s.replace(/[^A-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    /* UNGLUE A TYPE FROM ITS NUMBER.
+
+       Stripping the dots first is what makes C.C.No.212/2026 work, but it also
+       welds "R.P.66/2022" into "RP66 2022" — and the pattern below, having no
+       separator to go on, then split that as type RP6, number 6, giving
+       RP6/6/2022 instead of RP/66/2022.
+
+       That mattered far more than it looks. A firm whose register keeps the
+       whole case number in ONE column — which is the common shape, and the one
+       a firm is most likely to hand over — got a garbage key for every row and
+       therefore not a single case-number match. The fixture happens to keep
+       CaseType, CaseNo and Year in separate columns, so nothing caught it.
+
+       A case type is alphabetic in every Indian forum, so a letter run
+       immediately followed by a digit run is always a type meeting its number.
+       Separating them is unambiguous. */
+    s = s.replace(/\b([A-Z]{1,8})(\d{1,7})\b/g, '$1 $2');
+
     const m = s.match(/([A-Z0-9]{1,8})\s*([0-9OILSBGZQD]{1,7})\s*([0-9OILSBGZQD]{4})/);
     if (!m) return s;
     let [, typ, num, yr] = m;

@@ -107,18 +107,52 @@ group('T0  the ported engine against the reference');
     if (!same(CO.splitName(s), REF.splitName(s))) diffs.push(`splitName ${JSON.stringify(s)}`);
     if (!same(CO.foldIndic(s), REF.foldIndic(s))) diffs.push(`foldIndic ${JSON.stringify(s)}`);
   }
+  /* normCaseNo gains ONE correction over the reference: a type welded to its
+     number by the dot strip is separated again, so "R.P.66/2022" yields
+     RP/66/2022 rather than the reference's RP6/6/2022. Every divergence must
+     be of exactly that shape — a well-formed key where the reference produced
+     a mis-split one. */
+  const CANON = /^[A-Z]+\/\d+\/\d{4}$/;
+  const unglued = [];
   for (const c of CASES) {
     checks += 2;
-    if (!same(CO.normCaseNo(c), REF.normCaseNo(c))) diffs.push(`normCaseNo ${JSON.stringify(c)}`);
-    if (!same(CO.normCaseNo(c, true), REF.normCaseNo(c, true))) diffs.push(`normCaseNo/ocr ${JSON.stringify(c)}`);
+    /* Decide on the clean reading first: a raw string is glued when the
+       reference's type slot swallowed part of the number. The OCR reading of
+       the SAME string is then the identical correction seen through character
+       folding — the reference's "RPG/6/2022" is well-formed yet wrong, having
+       taken the 6 into the type and folded it to G — so it is judged by
+       whether the clean reading diverged, not by its own shape. */
+    const cleanA = CO.normCaseNo(c), cleanB = REF.normCaseNo(c);
+    const wasGlued = cleanA !== cleanB && CANON.test(cleanA) && !CANON.test(cleanB);
+    if (wasGlued) unglued.push(`${JSON.stringify(c)} ${cleanB} -> ${cleanA}`);
+
+    for (const ocr of [false, true]) {
+      const a = CO.normCaseNo(c, ocr), b = REF.normCaseNo(c, ocr);
+      if (same(a, b)) continue;
+      if (wasGlued && CANON.test(a)) continue;      // the same correction
+      diffs.push(`normCaseNo${ocr ? '/ocr' : ''} ${JSON.stringify(c)} ${b} -> ${a}`);
+    }
   }
   for (const cell of CELLS) {
     checks++;
     if (!same(CO.expandCaseCell(cell), RNG.expandCaseCell(cell))) diffs.push(`expandCaseCell ${JSON.stringify(cell)}`);
   }
   t('T0-01', diffs.length === 0,
-    `${checks} comparisons — normalisation, ranges and distance primitives are identical` +
-    (diffs.length ? ` — ${diffs.length} DIVERGENCES: ${diffs.slice(0, 5).join('; ')}` : ''));
+    `${checks} comparisons — normalisation, ranges and distance primitives are identical, ` +
+    `bar ${unglued.length} unglued case number(s): ${unglued.join('; ') || 'none'}` +
+    (diffs.length ? ` — ${diffs.length} UNEXPLAINED: ${diffs.slice(0, 5).join('; ')}` : ''));
+
+  /* And the correction has to actually be a correction. */
+  {
+    const glued = [['R.P.66/2022', 'RP/66/2022'], ['A.P.12/2025', 'AP/12/2025'],
+                   ['R.P.541/2022', 'RP/541/2022'], ['SMR.1/2025', 'SMR/1/2025'],
+                   ['W.P.14523/2025', 'WP/14523/2025']];
+    const bad = glued.filter(([raw, want]) => CO.normCaseNo(raw) !== want);
+    t('T0-01b', bad.length === 0,
+      'a case number written whole in one cell normalises correctly — ' +
+      glued.map(([r]) => `${r}=${CO.normCaseNo(r)}`).join(', ') +
+      (bad.length ? ` — WRONG: ${bad.map(([r, w]) => `${r} want ${w} got ${CO.normCaseNo(r)}`).join('; ')}` : ''));
+  }
 
   /* Where the token order already agrees, the sorted candidate the guard adds
      is the in-order one, so the score must be untouched. That is every
@@ -1391,6 +1425,90 @@ group('T18  a party is not corroborating evidence');
   t('T18-10', broke.length === 0,
     'vowel-initial and consonant-initial transliteration variants both still reach auto' +
     (broke.length ? ` — BROKE: ${broke.map(([q, c]) => `${q}/${c}=${tierOf(q, c)}`).join(', ')}` : ''));
+}
+
+/* ==========================================================================
+   T19 — a register does not have to look like the fixture.
+
+   Asked from real use: "if I upload a file with client name, case number,
+   mobile number and cause title, that should be allowed and enough — you must
+   not expect the same structure as the file I uploaded?"
+
+   It must be enough, and it was not. fixtures/cases.csv keeps CaseType, CaseNo
+   and Year in three columns, so nothing in the suite ever exercised the far
+   commoner shape of one whole case number in one cell — which produced a
+   garbage key for every row and therefore ZERO case-number matches.
+   ========================================================================== */
+group('T19  a minimal register is enough');
+{
+  const parse = csv => CO.io.parseRegisterRows(
+    csv.trim().split('\n').map(l => l.split(',').map(c => c.replace(/^"|"$/g, '').trim())));
+
+  const minimal = parse(`
+Client Name,Case Number,Mobile Number,Cause Title
+K.Jegan,R.P.66/2022,9840920001,K.Jegan -Vs- J.C/E.O and others
+E.R. Kannan,R.P.541/2022,9840920003,E.R. Kannan -Vs- J.C. Chennai Division-2
+V.Loganathan,R.P.502/2023,9840920004,V.Loganathan and 10 others -Vs- JC Tiruppur`);
+
+  t('T19-01', minimal.cases.length === 3 &&
+    minimal.cases.map(c => c.caseKey).join(' ') === 'RP/66/2022 RP/541/2022 RP/502/2023',
+    `four columns are enough — keys ${minimal.cases.map(c => c.caseKey).join(', ')}`);
+
+  t('T19-02', minimal.cases.every(c => c.partyName && c.mobile && c.causeTitle),
+    'client name, mobile and cause title are all mapped, none swallowed by a neighbouring field');
+
+  /* The specific mis-assignment that hid the bug: caseType is declared before
+     causeTitle, and used to claim the "Cause Title" column outright. */
+  t('T19-03', minimal.mapping.causeTitle != null &&
+    minimal.columns[minimal.mapping.causeTitle] === 'Cause Title',
+    'the "Cause Title" column goes to causeTitle, not to caseType');
+
+  const variants = {
+    'Party / Case No / Phone / Title': `
+Party,Case No,Phone,Title
+K.Jegan,R.P.66/2022,9840920001,K.Jegan -Vs- J.C/E.O`,
+    'columns in any order': `
+Cause Title,Mobile,Case Number,Client
+K.Jegan -Vs- J.C/E.O,9840920001,R.P.66/2022,K.Jegan`,
+    'case number and nothing else': `
+Case Number
+R.P.66/2022`,
+    'the fixture shape, three columns': `
+CaseType,CaseNo,Year,PartyName
+R.P,66,2022,K.Jegan`
+  };
+  const wrong = Object.entries(variants)
+    .filter(([, csv]) => (parse(csv).cases[0] || {}).caseKey !== 'RP/66/2022');
+  t('T19-04', wrong.length === 0,
+    `${Object.keys(variants).length} other register shapes all yield RP/66/2022` +
+    (wrong.length ? ` — FAILED: ${wrong.map(([k]) => k).join(', ')}` : ''));
+
+  /* End to end: the minimal file must actually drive case-number matching. */
+  {
+    const roster = loadRoster(CO, 'advocates-hrce.csv');
+    const doc = await readPdf(CO, 'hrce/Causelistdated11_08_2026.pdf', { roster });
+    const R = CO.engine.run({ advocates: roster, register: minimal.cases,
+                              documents: [doc], date: '2026-08-11' });
+    const byCase = R.matches.filter(m => m.signals.some(s => s.kind === 'caseNumber'));
+    t('T19-05', byCase.length === 3 && byCase.every(m => m.tier === 'auto'),
+      `${byCase.length} matters identified by case number from the four-column register ` +
+      `(${byCase.map(m => m.item.caseNumbers[0]).join(', ')})`);
+
+    const ev = byCase[0] && byCase[0].evidence;
+    const titleRow = ev && ev.rows.find(r => r.field.toLowerCase().includes('causetitle'));
+    t('T19-06', titleRow && titleRow.inRegister && titleRow.verdict === 'agree',
+      'and the cause title from that register reaches the evidence table' +
+      (titleRow ? ` — "${String(titleRow.inRegister).slice(0, 40)}" (${titleRow.verdict})` : ''));
+  }
+
+  /* Stated honestly: a bare number with no case type cannot be matched, because
+     541/2022 could be an R.P. or an A.P. and guessing would be worse. */
+  const noType = parse(`
+Client,Case Number,Mobile
+K.Jegan,66/2022,9840920001`);
+  t('T19-07', noType.cases.length === 1 && !/^[A-Z]+\//.test(noType.cases[0].caseKey),
+    `a number with no case type stays unmatched rather than guessing a forum — ` +
+    `"66/2022" -> "${noType.cases[0].caseKey}"`);
 }
 
 /* ==========================================================================
