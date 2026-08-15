@@ -285,3 +285,72 @@ T18 holds all of it: the reported pair scores `none`; no cluster signal ever
 attaches to a party; every name-only party match sits at weak and none is
 dropped; both partner-as-party matters still reach `auto` on their case number;
 and the cluster still promotes counsel, with P01's four-advocate cluster intact.
+
+---
+
+## 8. "against" is not a name — the head guard and the leading vowel
+
+Reported next: **"Is `against` your E. Ganesh?"** was the largest entry in the
+weak tier. Two causes, both general rather than particular to that word.
+
+### The head guard could be defeated by deleting a leading vowel
+
+| | |
+|---|---|
+| `fold("GANESH")` | `GNS` |
+| `fold("AGAINST")` | `GNST` |
+| foldSim | **0.94** |
+
+D3's head guard requires the first letter of some core token to agree, **raw or
+folded** — the folded path so that `CHANDRAN` still meets `SHANDRAN`. But
+folding deletes vowels *including a leading one*, so `AGAINST` lost its `A`,
+`G` met `G`, and the guard never fired. Core reached 0.80 against a gate of
+0.72, and the English word "against" was offered as a candidate for E. Ganesh.
+
+A dropped initial vowel is not a transliteration equivalence — a name starting
+with a vowel is a different name. **The folded comparison now applies only when
+both tokens start the same way**, both consonant or both vowel. `GANESH` starts
+on a consonant and `AGAINST` on a vowel, so the folded path is refused, the
+guard fires, core falls to 0.44 and it does not place at all.
+
+This is careful not to cost recall: vowel-initial pairs still compare to each
+other, so `Ananthakrishnan` / `ANANDAKRISHNAN` and `Thirumalai` / `TIRUMALAI`
+are untouched (T18-10), and the original `GANESH` / `VIGNESH` case D3 was
+written for is unaffected (T5-07).
+
+### Party separators are punctuation, not names
+
+`against` is the tribunal's `-Vs-`, and it arrives inside name cells constantly:
+`1.E.O against`, `21 against`, `54(4) against`. `PARTY_SEP_RE` now strips
+`against`, `versus`, `vs`, `v/s`, `and others`, `another`, `anr`, `ors` and a
+standalone `and` before scoring, so such a cell is left with no core token and
+is never scored at all (§4.4 returns `null`).
+
+### Measured
+
+Across the four HR&CE lists and the synthetic corpus, distinct matched strings
+fell from **58 to 53**, and the five that went were all the same fault:
+
+| Was matching E. Ganesh at | Printed |
+|---|---|
+| review | `1.E.O against` |
+| weak | `against`, `Against`, `21 against`, `54(4) against` |
+
+**Every legitimate match survived** — all 27 auto rows and all the real review
+rows are unchanged.
+
+### What this did to T0
+
+The port now diverges from the reference in **three** deliberate ways, and two
+of them pull against the first: the order guard raises scores, while the
+vowel-head rule and the separator strip lower them. T0 was rewritten to police
+the set rather than a single change:
+
+- **T0-02** — a score falls *only* where the vowel-head rule or the separator
+  strip applies; 14 such falls, all intended.
+- **T0-02b** — every one of those falls is a **non-name** being pushed down
+  (`ADVOCATE NAME ILLEGIBLE`, `M.P.No`, `COMPLAINANT IN PERSON`). It fails if a
+  real name-against-name pair ever loses score, which would mean the precision
+  work had started costing recall — the expensive direction under C4.
+- **T0-05** — still the strongest guarantee, and still holds across all three
+  changes: **no tier ever falls.**

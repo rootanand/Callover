@@ -66,9 +66,25 @@
        letter of SOME core token to agree, raw or folded (so CHANDRAN against
        SHANDRAN still works), removes that whole class of false positive at no
        cost to recall. Verified on the real list: 5 false positives gone, zero
-       true matches lost. (Decision D3, regression T5-07 / T6-03.) */
-    const headOK = q.core.some(qt => c.core.some(ct =>
-      qt[0] === ct[0] || (CO.foldIndic(qt)[0] || '') === (CO.foldIndic(ct)[0] || '')));
+       true matches lost. (Decision D3, regression T5-07 / T6-03.)
+
+       THE FOLDED COMPARISON ONLY APPLIES WHEN BOTH TOKENS BEGIN THE SAME WAY —
+       both on a consonant, or both on a vowel.
+
+       Folding deletes vowels, INCLUDING A LEADING ONE, and that is not a
+       transliteration equivalence: a name that starts with a vowel is a
+       different name from one that starts with a consonant. Without this,
+       AGAINST folds to GNST against GANESH's GNS, the leading A simply
+       vanishes, G meets G and the guard never fires — scoring the English word
+       "against" at 0.94 fold similarity and surfacing it as a candidate for
+       E. Ganesh. The rule D3 is actually reaching for is that the leading
+       SOUND is preserved, and a dropped initial vowel changes it. */
+    const vowelHead = s => /^[AEIOU]/.test(s);
+    const headOK = q.core.some(qt => c.core.some(ct => {
+      if (qt[0] === ct[0]) return true;
+      if (vowelHead(qt) !== vowelHead(ct)) return false;
+      return (CO.foldIndic(qt)[0] || '') === (CO.foldIndic(ct)[0] || '');
+    }));
 
     const M = CO.SCORE_MIX;
     let core = M.RAW * rawSim + M.FOLD * foldSim + M.TOKEN * tokSim;

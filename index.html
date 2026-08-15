@@ -928,6 +928,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   CO.TITLE_RE = /\b(M\/S|MS|MR|MRS|MISS|THIRU|TMT|SELVI|SHRI|SRI|SMT|DR|ADV|ADVOCATE|LEARNED|COUNSEL|SENIOR|SR|PROF)\b/g;
   CO.ROLE_RE  = /\b(FOR|APPEARING|ON BEHALF OF|TAKES NOTICE|ACCEPTS NOTICE|GP|SPP|SGP|AGP|PP|SC|ASG|AAG|GOVERNMENT PLEADER|PUBLIC PROSECUTOR|STANDING COUNSEL|AMICUS|CURIAE|PARTY IN PERSON|PIP)\b/g;
 
+  /* Structural words that separate or enumerate PARTIES. They are punctuation
+     in disguise, never part of anybody's name, and they arrive inside name
+     cells all the time — "1.E.O against", "V.Chandra And 5 others".
+
+     "AGAINST" is the tribunal's "-Vs-", and it was the worst offender: it
+     folds to GNST against GANESH's GNS and was being offered as a candidate
+     for E. Ganesh on five separate rows. Stripping it leaves those cells with
+     no core token at all, so they are never scored (§4.4 returns null). */
+  CO.PARTY_SEP_RE = /\b(AGAINST|VERSUS|VS|V\/S|AND OTHERS|AND ANOTHER|OTHERS|ANOTHER|ANR|ORS|AND)\b/g;
+
   /* ---------------------------------------------------------------- §4.1
      Transliteration folding. ORDER MATTERS: longest digraphs first, or KSH
      would be eaten by SH. Applied left to right, then doubled letters are
@@ -1411,6 +1421,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
     s = s.replace(/^M\/S\.?\s*/, '');          // a chambers prefix, not a name
     s = s.replace(CO.TITLE_RE, ' ');
     s = s.replace(CO.ROLE_RE, ' ');
+    s = s.replace(CO.PARTY_SEP_RE, ' ');       // "against", "and others" — punctuation, not names
     s = s.replace(/\bR-?\d+\b|\bD-?\d+\b|\bP-?\d+\b/g, ' ');   // R1, D8, P-2 markers
     s = s.replace(/[^A-Z. ]/g, ' ');
     const toks = s.split(/[.\s]+/).filter(Boolean);
@@ -1893,9 +1904,25 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
        letter of SOME core token to agree, raw or folded (so CHANDRAN against
        SHANDRAN still works), removes that whole class of false positive at no
        cost to recall. Verified on the real list: 5 false positives gone, zero
-       true matches lost. (Decision D3, regression T5-07 / T6-03.) */
-    const headOK = q.core.some(qt => c.core.some(ct =>
-      qt[0] === ct[0] || (CO.foldIndic(qt)[0] || '') === (CO.foldIndic(ct)[0] || '')));
+       true matches lost. (Decision D3, regression T5-07 / T6-03.)
+
+       THE FOLDED COMPARISON ONLY APPLIES WHEN BOTH TOKENS BEGIN THE SAME WAY —
+       both on a consonant, or both on a vowel.
+
+       Folding deletes vowels, INCLUDING A LEADING ONE, and that is not a
+       transliteration equivalence: a name that starts with a vowel is a
+       different name from one that starts with a consonant. Without this,
+       AGAINST folds to GNST against GANESH's GNS, the leading A simply
+       vanishes, G meets G and the guard never fires — scoring the English word
+       "against" at 0.94 fold similarity and surfacing it as a candidate for
+       E. Ganesh. The rule D3 is actually reaching for is that the leading
+       SOUND is preserved, and a dropped initial vowel changes it. */
+    const vowelHead = s => /^[AEIOU]/.test(s);
+    const headOK = q.core.some(qt => c.core.some(ct => {
+      if (qt[0] === ct[0]) return true;
+      if (vowelHead(qt) !== vowelHead(ct)) return false;
+      return (CO.foldIndic(qt)[0] || '') === (CO.foldIndic(ct)[0] || '');
+    }));
 
     const M = CO.SCORE_MIX;
     let core = M.RAW * rawSim + M.FOLD * foldSim + M.TOKEN * tokSim;

@@ -35,6 +35,16 @@
   CO.TITLE_RE = /\b(M\/S|MS|MR|MRS|MISS|THIRU|TMT|SELVI|SHRI|SRI|SMT|DR|ADV|ADVOCATE|LEARNED|COUNSEL|SENIOR|SR|PROF)\b/g;
   CO.ROLE_RE  = /\b(FOR|APPEARING|ON BEHALF OF|TAKES NOTICE|ACCEPTS NOTICE|GP|SPP|SGP|AGP|PP|SC|ASG|AAG|GOVERNMENT PLEADER|PUBLIC PROSECUTOR|STANDING COUNSEL|AMICUS|CURIAE|PARTY IN PERSON|PIP)\b/g;
 
+  /* Structural words that separate or enumerate PARTIES. They are punctuation
+     in disguise, never part of anybody's name, and they arrive inside name
+     cells all the time — "1.E.O against", "V.Chandra And 5 others".
+
+     "AGAINST" is the tribunal's "-Vs-", and it was the worst offender: it
+     folds to GNST against GANESH's GNS and was being offered as a candidate
+     for E. Ganesh on five separate rows. Stripping it leaves those cells with
+     no core token at all, so they are never scored (§4.4 returns null). */
+  CO.PARTY_SEP_RE = /\b(AGAINST|VERSUS|VS|V\/S|AND OTHERS|AND ANOTHER|OTHERS|ANOTHER|ANR|ORS|AND)\b/g;
+
   /* ---------------------------------------------------------------- §4.1
      Transliteration folding. ORDER MATTERS: longest digraphs first, or KSH
      would be eaten by SH. Applied left to right, then doubled letters are

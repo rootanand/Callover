@@ -35,6 +35,7 @@
     s = s.replace(/^M\/S\.?\s*/, '');          // a chambers prefix, not a name
     s = s.replace(CO.TITLE_RE, ' ');
     s = s.replace(CO.ROLE_RE, ' ');
+    s = s.replace(CO.PARTY_SEP_RE, ' ');       // "against", "and others" — punctuation, not names
     s = s.replace(/\bR-?\d+\b|\bD-?\d+\b|\bP-?\d+\b/g, ' ');   // R1, D8, P-2 markers
     s = s.replace(/[^A-Z. ]/g, ' ');
     const toks = s.split(/[.\s]+/).filter(Boolean);

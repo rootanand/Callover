@@ -51,19 +51,28 @@ console.log(`\nCallover ${CO.VERSION} — TDD.md §10 test suite`);
    T0 — the port against the reference (not in §10; added because §4 forbids
    silent drift).
 
-   The port is identical to src/engine-reference.js in every part EXCEPT the
-   order guard in §4.4 (see docs/measurements.md §5). That one divergence is
-   deliberate, and this group's job is to prove it is the ONLY one and that it
-   is bounded in the direction that matters:
+   The port is identical to src/engine-reference.js apart from THREE deliberate
+   changes, all recorded in docs/measurements.md §5 and §8:
+
+     (a) the ORDER GUARD (§4.4) — rawSim and foldSim take the better of the
+         in-order and token-sorted comparison. Raises scores only.
+     (b) the VOWEL-HEAD RULE — the head guard's folded comparison applies only
+         when both tokens start the same way, consonant or vowel. Lowers
+         scores only.
+     (c) the PARTY SEPARATOR strip — "against", "and others" and the like are
+         punctuation, not names, and are removed before scoring.
+
+   (a) buys recall, (b) and (c) buy precision, and they pull in opposite
+   directions — so this group's job is to prove the set is exactly those three
+   and that each only ever moves scores the way it is supposed to:
 
      T0-01  normalisation, range expansion and the distance primitives are
             bit-for-bit identical
-     T0-02  no score can ever fall — the guard is a pure Math.max
-     T0-03  scores are EXACTLY identical wherever the token order already
-            agreed, which is every single-token name and therefore every case
-            in T1, T2, T4 and T6
+     T0-02  a score falls ONLY where (b) or (c) applies, and rises otherwise
+     T0-03  scores are EXACTLY identical where none of the three applies
      T0-04  classification is unchanged given the same score
-     T0-05  no tier can fall; the tiers that rise are enumerated
+     T0-05  NO TIER EVER FALLS — the strongest of these, and it holds across
+            all three changes; the tiers that rise are enumerated
    ========================================================================== */
 group('T0  the ported engine against the reference');
 {
@@ -120,7 +129,26 @@ group('T0  the ported engine against the reference');
     return sorted(a) && sorted(b);
   };
 
+  /* Does one of the two PRECISION changes bear on this pair? Either a party
+     separator was stripped, so the port sees different core tokens from the
+     reference, or the vowel-head rule reaches a different verdict from the
+     reference's head guard. Where either is true a fall is the intended
+     outcome; where neither is, a fall would be a bug. */
+  const vh = s => /^[AEIOU]/.test(s);
+  const precisionApplies = (q, c) => {
+    const qp = CO.splitName(q).core, cp = CO.splitName(c).core;
+    const qr = REF.splitName(q).core, cr = REF.splitName(c).core;
+    if (qp.join('|') !== qr.join('|') || cp.join('|') !== cr.join('|')) return true;
+    const refHead = qr.some(qt => cr.some(ct =>
+      qt[0] === ct[0] || (REF.foldIndic(qt)[0] || '') === (REF.foldIndic(ct)[0] || '')));
+    const newHead = qp.some(qt => cp.some(ct =>
+      qt[0] === ct[0] || (vh(qt) === vh(ct) &&
+        (CO.foldIndic(qt)[0] || '') === (CO.foldIndic(ct)[0] || ''))));
+    return refHead !== newHead;
+  };
+
   let pairs = 0, fell = [], changedSameOrder = [], nullness = [], classifyDiff = [];
+  const precisionFalls = [];
   const rank = { none: 0, weak: 1, review: 2, auto: 3 };
   const rose = [], tierFell = [];
 
@@ -130,9 +158,13 @@ group('T0  the ported engine against the reference');
     if ((a === null) !== (b === null)) { nullness.push(`${q}|${c}`); continue; }
     if (a === null) continue;
 
-    if (a.combined + 1e-12 < b.combined)
-      fell.push(`${q}|${c} ${b.combined.toFixed(4)} -> ${a.combined.toFixed(4)}`);
-    if (sameOrder(q, c) && (!near(a.combined, b.combined) || !near(a.core, b.core)))
+    const precision = precisionApplies(q, c);
+    if (a.combined + 1e-12 < b.combined) {
+      const note = `${JSON.stringify(c)} for ${JSON.stringify(q)} ${b.combined.toFixed(3)} -> ${a.combined.toFixed(3)}`;
+      if (precision) precisionFalls.push(note);
+      else fell.push(note);
+    }
+    if (!precision && sameOrder(q, c) && (!near(a.combined, b.combined) || !near(a.core, b.core)))
       changedSameOrder.push(`${q}|${c} ${b.combined.toFixed(4)} -> ${a.combined.toFixed(4)}`);
     if (a.initials.state !== b.initials.state) classifyDiff.push(`initials ${q}|${c}`);
 
@@ -146,11 +178,25 @@ group('T0  the ported engine against the reference');
   }
 
   t('T0-02', fell.length === 0 && nullness.length === 0,
-    `over ${pairs} name pairs no score falls — the order guard is a pure Math.max` +
-    (fell.length ? ` — ${fell.length} FELL: ${fell.slice(0, 3).join('; ')}` : ''));
+    `over ${pairs} name pairs a score falls only where the vowel-head rule or the ` +
+    `separator strip applies (${precisionFalls.length} such, all intended)` +
+    (fell.length ? ` — ${fell.length} UNEXPLAINED FALLS: ${fell.slice(0, 3).join('; ')}` : ''));
+
+  /* Every intended fall must be a NON-NAME being pushed down. If a real
+     transliteration variant were in this list the precision work would be
+     costing recall, which is the expensive direction under C4. */
+  const NAMEY = /GANESH|GANESAN|SRIKANTH|KRISHNA|THAMARAI|SELVAN|LOKES|LAKSHMI|LAXMI|CHANDRA|SAKTHI|BALAGURU/;
+  const suspicious = precisionFalls.filter(s => {
+    const m = s.match(/^"([^"]*)" for "([^"]*)"/);
+    return m && NAMEY.test(m[1].toUpperCase()) && NAMEY.test(m[2].toUpperCase());
+  });
+  t('T0-02b', suspicious.length === 0,
+    `every intended fall is a non-name — ${[...new Set(precisionFalls.map(s =>
+      (s.match(/^"([^"]*)"/) || [])[1]))].slice(0, 6).join(', ')}` +
+    (suspicious.length ? ` — REAL NAME PUSHED DOWN: ${suspicious.slice(0, 3).join('; ')}` : ''));
 
   t('T0-03', changedSameOrder.length === 0,
-    'scores are untouched wherever the token order already agreed' +
+    'scores are untouched where none of the three changes applies' +
     (changedSameOrder.length ? ` — ${changedSameOrder.slice(0, 3).join('; ')}` : ''));
 
   t('T0-04', classifyDiff.length === 0,
@@ -1276,6 +1322,49 @@ group('T18  a party is not corroborating evidence');
   const clustered = p01.filter(m => m.signals.some(s => s.kind === 'cluster'));
   t('T18-06', clustered.length >= 2 && clustered.every(m => m.matchRole === 'counsel'),
     `the cluster still promotes counsel — P01 has ${clustered.length} clustered counsel matches`);
+
+  /* ---- the "against" class: ordinary words are not candidate names ----
+
+     Reported: "Is against your E. Ganesh?" was the top weak entry. Two causes,
+     both general rather than particular to that word. */
+
+  /* 1. The head guard was defeated by a deleted leading vowel: AGAINST folds
+        to GNST against GANESH's GNS, so G met G and the guard never fired. */
+  const vowelHeadCases = [
+    ['E. Ganesh', 'AGAINST'], ['E. Ganesh', 'AGNES'], ['E. Ganesh', 'IGNESH'],
+    ['M. Krishnamurthy', 'ARKISHNA'], ['K. Sakthivel', 'ASAKTHI']
+  ];
+  const leaked = vowelHeadCases.filter(([q, c]) => {
+    const s = CO.nameScore(q, c);
+    return s && s.headOK;   // a vowel-initial word must not borrow a consonant head
+  });
+  t('T18-07', leaked.length === 0,
+    'the head guard is not fooled by a deleted leading vowel — a vowel-initial word ' +
+    'never borrows a consonant-initial name\'s head' +
+    (leaked.length ? ` — LEAKED: ${leaked.map(([q, c]) => `${c}/${q}`).join(', ')}` : ''));
+
+  /* 2. Party separators are punctuation, so they leave no core token at all. */
+  const seps = ['against', 'Against', 'AGAINST', '1.E.O against', '21 against',
+                '54(4) against', 'versus', 'Vs', 'and others', 'another'];
+  const scored = seps.filter(s => CO.nameScore('E. Ganesh', s) !== null);
+  t('T18-08', scored.length === 0,
+    `${seps.length} separator strings yield no core token and are never scored` +
+    (scored.length ? ` — STILL SCORED: ${scored.join(', ')}` : ''));
+
+  /* 3. And none of them survives anywhere in the real corpus, at any tier. */
+  const junk = run.matches.filter(m => /\b(against|versus|vs)\b/i.test(m.matchedText));
+  t('T18-09', junk.length === 0,
+    'no match anywhere in the four HR&CE files is built on a party separator' +
+    (junk.length ? ` — ${junk.map(m => `${m.tier} "${m.matchedText}"`).join(', ')}` : ''));
+
+  /* 4. The transliteration variants this must not cost — vowel-initial pairs
+        still match each other, which is what the rule is careful to allow. */
+  const stillOK = [['R. Ananthakrishnan', 'R.ANANDAKRISHNAN'], ['A. Thirumalai', 'A.TIRUMALAI'],
+                   ['E. Ganesh', 'E.GANESAN'], ['M. Krishnamurthy', 'M.KRISHNAMOORTHI']];
+  const broke = stillOK.filter(([q, c]) => tierOf(q, c) !== 'auto');
+  t('T18-10', broke.length === 0,
+    'vowel-initial and consonant-initial transliteration variants both still reach auto' +
+    (broke.length ? ` — BROKE: ${broke.map(([q, c]) => `${q}/${c}=${tierOf(q, c)}`).join(', ')}` : ''));
 }
 
 /* ==========================================================================
