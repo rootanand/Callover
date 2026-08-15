@@ -84,6 +84,37 @@
     };
   }
 
+  /* Find the register entry for an item by its parties, for registers that
+     carry no case-number column.
+
+     KEYLESS ROWS ONLY, and this is the point rather than an optimisation. If a
+     register row HAS a case key and that key did not match, the miss is real
+     evidence that this is not the firm's matter, and going looking for it by
+     party text instead throws that evidence away. Measured: without this
+     restriction, decoys D09 (M.KRISHNAN) and D10 (T.SELVAN) were promoted from
+     review to auto, having found register entries whose cause titles merely
+     ended "-Vs- The State" as half the list does.
+
+     Held to a stricter threshold than the promoting signal, and required to be
+     clearly better than the runner-up, because a party name is a much weaker
+     handle than a case number and an ambiguous one is worth nothing. */
+  function findRegisterByParties(item, reg) {
+    let best = null, bestSim = 0, second = 0;
+    for (const rc of reg.all) {
+      if (rc.caseKey) continue;
+      const sim = Math.max(
+        textSim([item.petitioner, item.respondent].filter(Boolean).join(' vs '), rc.causeTitle),
+        textSim(item.petitioner, rc.partyName),
+        textSim(item.respondent, rc.partyName)
+      );
+      if (sim > bestSim) { second = bestSim; bestSim = sim; best = rc; }
+      else if (sim > second) second = sim;
+    }
+    if (bestSim < CO.PARTY_FALLBACK_MIN) return null;
+    if (bestSim - second < CO.PARTY_FALLBACK_MARGIN) return null;
+    return best;
+  }
+
   /* §4.7 — promotes weak->review and review->auto. Never fires on its own. */
   function partySignal(item, rc) {
     if (!rc) return null;
@@ -111,8 +142,7 @@
 
     const csig = caseNumberSignal(item, reg);
     const nsig = cnrSignal(item, reg);
-    const rc   = (csig && csig.registerCase) || (nsig && nsig.registerCase) || null;
-    const psig = partySignal(item, rc);
+    let   rc   = (csig && csig.registerCase) || (nsig && nsig.registerCase) || null;
 
     /* --- score every printed name against every firm advocate --- */
     const advKey = a => CO.upperClean(a && a.name).replace(/[^A-Z]/g, '');
@@ -181,6 +211,18 @@
       names: strong.map(h => h.advocate.name),
       detail: `${strong.length} of your advocates are printed on this item: ${strong.map(h => h.advocate.name).join(', ')}.`
     } : null;
+
+    /* No case number and no CNR matched — but the firm may still hold this
+       matter under a cause title or a party name, which is all some registers
+       carry. Find it that way so §4.7's partyName signal can corroborate, and
+       so the confirm card can show the register side at all.
+
+       Deliberately only when a NAME already matched: partyName promotes, it
+       never fires alone, so scanning for every item would cost a linear pass
+       over the register per item and buy nothing. This keeps it to the handful
+       of items that are already candidates. */
+    if (!rc && perAdvocate.size) rc = findRegisterByParties(item, reg);
+    const psig = partySignal(item, rc);
 
     const out = [];
     const mk = (advocate, hit) => {

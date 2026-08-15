@@ -143,7 +143,7 @@
       bd.appendChild(el('p', { class: 'hint', id: 'co-advcount' },
         S.advocates.length ? `${S.advocates.length} advocate${S.advocates.length === 1 ? '' : 's'} read.` : ''));
     } else {
-      bd.appendChild(fileButton('.txt,.csv,.tsv,.xlsx,.xls', 'Choose an advocate list',
+      bd.appendChild(fileButton(CO.ACCEPT_ADVOCATES, 'Choose an advocate list',
         async f => {
           try {
             const p = await CO.io.readAdvocateFile(f);
@@ -184,7 +184,7 @@
     const r = S.register;
 
     if (!r) {
-      bd.appendChild(fileButton('.csv,.tsv,.xlsx,.xls', 'Choose your case register',
+      bd.appendChild(fileButton(CO.ACCEPT_REGISTER, 'Choose your case register',
         async f => {
           try {
             S.register = await CO.io.readRegisterFile(f);

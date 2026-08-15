@@ -172,7 +172,20 @@
         const whole = get('caseNo') || row.find(c => /\d{1,6}\s*[\/]\s*\d{4}/.test(c)) || '';
         if (whole) caseKey = CO.normCaseNo(whole);
       }
-      if (!caseKey) continue;
+      /* USE WHAT IS THERE.
+
+         A row used to be dropped outright when no case key could be built, so
+         a register with no case-number column at all yielded nothing —
+         not a cause title, not a party, not a diary number. That is the wrong
+         way round: the case number is the STRONGEST identifier, not the only
+         one, and a firm that keeps client names and cause titles has still
+         handed over something Callover can corroborate a name match with
+         (§4.7 partyName) and can show on a confirm card.
+
+         The row is kept when it carries any usable identity. Only a row that
+         is genuinely empty of everything is skipped. */
+      const usable = caseKey || get('cnr') || get('causeTitle') || get('partyName') || get('diaryNo');
+      if (!usable) continue;
 
       cases.push({
         id: 'rc' + r, diaryNo: get('diaryNo'), caseType, caseNo, year, caseKey,

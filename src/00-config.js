@@ -133,6 +133,14 @@
      signal. Below it the parties are simply different matters. */
   CO.PARTY_MATCH_MIN = 0.80;
 
+  /* Finding a register entry BY its parties, when the register has no
+     case-number column at all, is a weaker move than the signal above and is
+     held to a higher bar — plus a margin over the runner-up, because half a
+     cause list ends "-Vs- The State" and an ambiguous party match is worth
+     nothing at all. */
+  CO.PARTY_FALLBACK_MIN    = 0.88;
+  CO.PARTY_FALLBACK_MARGIN = 0.05;
+
   /* ---------------------------------------------------------------- §4.6a
      Range expansion. A misparse of a page number as a range must not generate
      an unbounded key set; anything wider than this is flagged, not expanded. */
@@ -313,6 +321,17 @@
 
   /* §6.2 — the firm's register schema. Every original column is preserved in
      RegisterCase.raw regardless; these are the ones the engine reads. */
+  /* What the file pickers offer. Kept here, and kept in step with what the
+     parsers genuinely handle, because an `accept` list is a real restriction:
+     a format missing from it cannot be chosen in the dialog at all, however
+     well the code behind would have read it.
+
+     SheetJS reads all of these, and both parsers were already tested against
+     every one — .xlsm and .ods worked perfectly while being silently
+     unselectable, and the register handles a delimited .txt. Verified in T20. */
+  CO.ACCEPT_ADVOCATES = '.txt,.csv,.tsv,.xlsx,.xlsm,.xls,.ods';
+  CO.ACCEPT_REGISTER  = '.csv,.tsv,.txt,.xlsx,.xlsm,.xls,.ods';
+
   CO.REGISTER_HEADERS = {
     diaryNo:    ['diaryno', 'diary no', 'diary'],
     caseType:   ['casetype', 'case type', 'type'],

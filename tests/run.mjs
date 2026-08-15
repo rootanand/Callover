@@ -1512,6 +1512,129 @@ K.Jegan,66/2022,9840920001`);
 }
 
 /* ==========================================================================
+   T20 — flexible input, and running on whatever is actually supplied.
+
+   Both inputs must take the shapes a firm really has, and must work from
+   whichever fields are present rather than demanding a fixed set.
+   ========================================================================== */
+group('T20  flexible formats, and use what is there');
+{
+  const XLSX = globalThis.XLSX;
+  const fileOf = (name, data) => ({
+    name,
+    text: async () => (typeof data === 'string' ? data : Buffer.from(data).toString('utf8')),
+    arrayBuffer: async () => (typeof data === 'string' ? Buffer.from(data, 'utf8') : data)
+  });
+  const book = (rows, type) => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Sheet1');
+    return XLSX.write(wb, { type: 'array', bookType: type });
+  };
+  const csv = (rows, sep) => rows.map(r => r.map(c => /[",;\t]/.test(c) ? `"${c}"` : c).join(sep)).join('\n');
+
+  const A = [['Advocate Name', 'Enrolment No', 'Role'],
+             ['E. Ganesh', 'MS/1234/2005', 'Senior'],
+             ['V. Chandrasekar', 'MS/3390/2012', 'Junior']];
+  const R = [['Client Name', 'Case Number', 'Mobile Number', 'Cause Title'],
+             ['K.Jegan', 'R.P.66/2022', '9840920001', 'K.Jegan -Vs- J.C/E.O'],
+             ['E.R. Kannan', 'R.P.541/2022', '9840920003', 'E.R. Kannan -Vs- JC']];
+
+  const advFiles = {
+    'txt': fileOf('a.txt', 'E. Ganesh\nV. Chandrasekar\n'),
+    'txt with a heading': fileOf('a.txt', 'Advocate Name\nE. Ganesh\nV. Chandrasekar\n'),
+    'csv': fileOf('a.csv', csv(A, ',')),
+    'csv with no header': fileOf('a.csv', 'E. Ganesh\nV. Chandrasekar\n'),
+    'csv, semicolons': fileOf('a.csv', csv(A, ';')),
+    'tsv': fileOf('a.tsv', csv(A, '\t')),
+    'csv with a BOM': fileOf('a.csv', '﻿' + csv(A, ',')),
+    'csv, blank lines and padding': fileOf('a.csv', '\n Advocate Name , Role \n\n E. Ganesh , Senior \n\n V. Chandrasekar , Junior \n'),
+    'xlsx': fileOf('a.xlsx', book(A, 'xlsx')),
+    'xls': fileOf('a.xls', book(A, 'biff8')),
+    'xlsm': fileOf('a.xlsm', book(A, 'xlsx')),
+    'ods': fileOf('a.ods', book(A, 'ods')),
+    'name buried in column 2': fileOf('a.csv', 'S.No,NAME OF THE ADVOCATE,Bar Enrolment\n1,E. Ganesh,MS/1234/2005\n2,V. Chandrasekar,MS/3390/2012\n'),
+    'a name column and nothing else': fileOf('a.csv', 'Name\nE. Ganesh\nV. Chandrasekar\n')
+  };
+  const advBad = [];
+  for (const [k, f] of Object.entries(advFiles)) {
+    try {
+      const p = await CO.io.readAdvocateFile(f);
+      const n = p.advocates.map(a => a.name).join('|');
+      if (p.advocates.length !== 2 || !/Ganesh/.test(n) || !/Chandrasekar/.test(n)) advBad.push(`${k} -> ${n}`);
+    } catch (e) { advBad.push(`${k} threw ${e.message}`); }
+  }
+  t('T20-01', advBad.length === 0,
+    `${Object.keys(advFiles).length} advocate-list shapes all yield the same 2 advocates` +
+    (advBad.length ? ` — FAILED: ${advBad.join('; ')}` : ''));
+
+  const regFiles = {
+    'csv': fileOf('c.csv', csv(R, ',')), 'csv, semicolons': fileOf('c.csv', csv(R, ';')),
+    'tsv': fileOf('c.tsv', csv(R, '\t')), 'csv with a BOM': fileOf('c.csv', '﻿' + csv(R, ',')),
+    'xlsx': fileOf('c.xlsx', book(R, 'xlsx')), 'xls': fileOf('c.xls', book(R, 'biff8')),
+    'xlsm': fileOf('c.xlsm', book(R, 'xlsx')), 'ods': fileOf('c.ods', book(R, 'ods')),
+    'txt, delimited': fileOf('c.txt', csv(R, ','))
+  };
+  const regBad = [];
+  for (const [k, f] of Object.entries(regFiles)) {
+    try {
+      const p = await CO.io.readRegisterFile(f);
+      if (p.cases.map(c => c.caseKey).join(',') !== 'RP/66/2022,RP/541/2022') regBad.push(`${k} -> ${p.cases.map(c => c.caseKey)}`);
+    } catch (e) { regBad.push(`${k} threw ${e.message}`); }
+  }
+  t('T20-02', regBad.length === 0,
+    `${Object.keys(regFiles).length} register shapes all yield the same 2 keys` +
+    (regBad.length ? ` — FAILED: ${regBad.join('; ')}` : ''));
+
+  /* Every format the parsers handle must also be OFFERED. An accept list is a
+     real restriction — .xlsm and .ods parsed perfectly while being impossible
+     to select in the file dialog. */
+  const offered = s => s.split(',').map(x => x.trim());
+  const advMissing = ['.txt', '.csv', '.tsv', '.xlsx', '.xlsm', '.xls', '.ods']
+    .filter(x => !offered(CO.ACCEPT_ADVOCATES).includes(x));
+  const regMissing = ['.csv', '.tsv', '.txt', '.xlsx', '.xlsm', '.xls', '.ods']
+    .filter(x => !offered(CO.ACCEPT_REGISTER).includes(x));
+  t('T20-03', advMissing.length === 0 && regMissing.length === 0,
+    `the pickers offer everything the parsers read — advocates ${CO.ACCEPT_ADVOCATES}, register ${CO.ACCEPT_REGISTER}` +
+    (advMissing.length || regMissing.length ? ` — NOT OFFERED: ${[...advMissing, ...regMissing].join(', ')}` : ''));
+
+  /* --- run on what is available --- */
+  const rows = s => s.trim().split('\n').map(l => l.split(',').map(c => c.trim()));
+
+  const noCaseNo = CO.io.parseRegisterRows(rows(`
+Client Name,Mobile,Cause Title
+K.Jegan,9840920001,K.Jegan -Vs- J.C/E.O and others
+E.R. Kannan,9840920003,E.R. Kannan -Vs- J.C. Chennai Division-2`));
+  t('T20-04', noCaseNo.cases.length === 2 && noCaseNo.cases.every(c => c.causeTitle && c.partyName),
+    `a register with NO case-number column keeps its ${noCaseNo.cases.length} rows ` +
+    '(it used to drop every one of them)');
+
+  /* …and those rows still do work: the cause title corroborates a name match
+     and reaches the confirm card. */
+  {
+    const roster = loadRoster(CO, 'advocates-hrce.csv');
+    const doc = await readPdf(CO, 'hrce/Causelistdated11_08_2026.pdf', { roster });
+    const run = CO.engine.run({ advocates: roster, register: noCaseNo.cases,
+                                documents: [doc], date: '2026-08-11' });
+    const withReg = run.matches.filter(m => m.registerCase);
+    t('T20-05', withReg.length > 0,
+      `${withReg.length} match(es) found their register entry by cause title alone — ` +
+      (withReg[0] ? `"${withReg[0].registerCase.causeTitle.slice(0, 34)}"` : ''));
+  }
+
+  /* But a case-number MISS is real evidence, so a register that does carry
+     numbers must not be searched by party text instead. */
+  t('T20-06', CO.PARTY_FALLBACK_MIN > CO.PARTY_MATCH_MIN && CO.PARTY_FALLBACK_MARGIN > 0,
+    `the party fallback is stricter than the promoting signal ` +
+    `(${CO.PARTY_FALLBACK_MIN} vs ${CO.PARTY_MATCH_MIN}, margin ${CO.PARTY_FALLBACK_MARGIN}) ` +
+    'and only consults rows that have no case key at all');
+
+  /* Advocates: enrolment and role are optional extras, never requirements. */
+  const bare = CO.io.parseAdvocateText('E. Ganesh\nV. Chandrasekar');
+  t('T20-07', bare.advocates.length === 2 && bare.advocates.every(a => a.enrolment === null && a.role === null),
+    'names alone are enough — enrolment and role stay null rather than blocking');
+}
+
+/* ==========================================================================
    T7 — OCR pipeline (§10.7). Needs a browser: tesseract.js is a Worker plus
    WebAssembly, and rasterising needs a canvas.
    ========================================================================== */
