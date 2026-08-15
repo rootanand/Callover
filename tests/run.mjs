@@ -1173,6 +1173,53 @@ if (!hasReal) {
 }
 
 /* ==========================================================================
+   T17 — the same file can be opened more than once.
+
+   pdf.js transfers the buffer it is given to its worker, which detaches it.
+   The real UI opens each dropped file TWICE — once to probe its document type
+   so the dropdown is pre-filled (§5.9 step 2), then again for the run — so a
+   caller's bytes being consumed on first open meant every drag-and-drop ended
+   in "An ArrayBuffer is detached and could not be cloned" with not one page
+   read. The earlier end-to-end tests all injected state directly and never ran
+   the probe, which is exactly why they did not catch it.
+   ========================================================================== */
+group('T17  a file survives being opened twice');
+{
+  const raw = new Uint8Array(readFileSync(fixture('causelist-synthetic-14082026.pdf')));
+  const before = raw.byteLength;
+
+  const d1 = await CO.pdfio.open(raw);
+  const p1 = d1.numPages;
+  CO.pdfio.close(d1);
+  t('T17-01', p1 > 0 && raw.byteLength === before,
+    `first open reads ${p1} pages and leaves the caller's ${before} bytes intact ` +
+    `(${raw.byteLength} after)`);
+
+  let err = null, p2 = 0;
+  try { const d2 = await CO.pdfio.open(raw); p2 = d2.numPages; CO.pdfio.close(d2); }
+  catch (e) { err = e.message; }
+  t('T17-02', !err && p2 === p1,
+    `the SAME bytes open a second time and give the same ${p1} pages` +
+    (err ? ` — FAILED: ${err}` : ''));
+
+  /* The full drop-then-run sequence the UI actually performs. */
+  const rec = { name: 'probe-then-run.pdf', bytes: raw, official: false, typeOverride: 'auto' };
+  const probe = await CO.pdfio.open(rec.bytes);
+  const tc = await (await probe.getPage(1)).getTextContent();
+  const detected = CO.extract.detectDocType(tc.items.map(i => i.str).join(' '));
+  CO.pdfio.close(probe);
+  const doc = await CO.extract.readDocument(rec, { roster: synthRoster, thorough: false });
+  t('T17-03', doc.items.length > 0 && doc.pages.length > 0,
+    `probe (detected "${detected.id}") then run reads ${doc.pages.length} pages ` +
+    `and ${doc.items.length} items from the same file record`);
+
+  let empty = null;
+  try { await CO.pdfio.open(new Uint8Array(0)); } catch (e) { empty = e.message; }
+  t('T17-04', empty && /empty|consumed/i.test(empty),
+    `an empty or already-consumed buffer is named clearly — "${empty}"`);
+}
+
+/* ==========================================================================
    T7 — OCR pipeline (§10.7). Needs a browser: tesseract.js is a Worker plus
    WebAssembly, and rasterising needs a canvas.
    ========================================================================== */

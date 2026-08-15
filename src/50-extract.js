@@ -903,8 +903,24 @@
 
     async open(bytes) {
       const lib = await this.ensure();
+
+      /* pdf.js hands the buffer it is given to its worker as a TRANSFERABLE,
+         which DETACHES it — the caller is left holding a zero-length view.
+
+         Callers here legitimately open the same file more than once: the type
+         probe when a file is dropped (§5.9 step 2), and then the run itself. So
+         the original must never be the thing that is consumed. Give pdf.js a
+         copy and keep the caller's bytes intact.
+
+         Without this, dropping a PDF and pressing Run fails with "An
+         ArrayBuffer is detached and could not be cloned" and NOT ONE PAGE is
+         read — the file is silently useless on the second open. */
+      if (!bytes || bytes.byteLength === 0)
+        throw new Error('the file is empty, or its data has already been consumed');
+      const data = bytes.slice();
+
       const opts = {
-        data: bytes, isEvalSupported: false, useSystemFonts: false,
+        data, isEvalSupported: false, useSystemFonts: false,
         disableFontFace: true, verbosity: 0
       };
       let worker = null;
