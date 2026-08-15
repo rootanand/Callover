@@ -1207,8 +1207,15 @@ item numbers and anything that must align.
 ### 8.1a Privacy is the offering — how it is stated
 
 Locality is not an implementation detail to be mentioned in a footer. It is the reason a
-firm will put a file containing **client names, phone numbers and fee entries** into a
+firm will put a file containing **client names, case numbers and phone numbers** into a
 web page at all. It must be visible without being shouted.
+
+> **Name only what every register actually holds.** An earlier draft said *"fee entries"*.
+> Many firms' registers carry no fee column at all, so for them the sentence described a
+> file they had not supplied — and a privacy claim that overstates what it is protecting is
+> the same kind of error as one that understates it. Names, case numbers and phone numbers
+> are present in essentially every register, which is what makes the claim true for
+> everyone reading it. (Test T10-12 keeps it out.)
 
 **Four placements, and no more.** Repetition past this point reads as protesting too much.
 
@@ -1224,7 +1231,7 @@ web page at all. It must be visible without being shouted.
 > **Nothing you open here leaves this device.**
 
 Then, one sentence naming what is actually at stake: *your case register carries client
-names, phone numbers and fee entries; Callover reads it inside your browser and sends it
+names, case numbers and phone numbers; Callover reads it inside your browser and sends it
 nowhere — because there is nowhere for it to be sent.*
 
 #### The three specifics

@@ -1103,6 +1103,32 @@ group('T10  the privacy band is a factual claim');
     t('T10-11', tut.includes('index.html') && banned.length === 0,
       'the tutorial links back to the app and uses none of the banned unfalsifiable words' +
       (banned.length ? ` — ${banned.join(', ')}` : ''));
+
+    /* The privacy claim must name only what EVERY register actually holds.
+       Many firms keep no fee column, so "fee entries" described a file they had
+       not supplied — overstating what is being protected is the same class of
+       error as understating it. Names, case numbers and phone numbers are in
+       essentially every register.
+
+       Scoped to the PHRASE, deliberately: the register's own `Fees` column is
+       real data handling (§6.2, CO.REGISTER_HEADERS) and must keep working. */
+    const copyFiles = ['index.html', 'how-to-use.html', 'README.md', 'TDD.md', 'docs/ui-design.html'];
+    const offenders = [];
+    for (const f of copyFiles) {
+      const p = join(ROOT, f);
+      if (!existsSync(p)) continue;
+      const src = readFileSync(p, 'utf8');
+      /* allow the one place TDD.md explains why the wording was dropped */
+      const hits = [...src.matchAll(/fee\s+entr\w*/gi)]
+        .filter(m => !/An earlier draft said/.test(src.slice(Math.max(0, m.index - 200), m.index)));
+      if (hits.length) offenders.push(`${f} (${hits.length})`);
+    }
+    const feesColumnStillMapped = CO.REGISTER_HEADERS.fees && CO.REGISTER_HEADERS.fees.length > 0;
+    t('T10-12', offenders.length === 0 && feesColumnStillMapped,
+      'the privacy claim names only what every register holds — no "fee entries" in the ' +
+      `shipped copy, while the register's own Fees column stays mapped` +
+      (offenders.length ? ` — STILL PRESENT IN ${offenders.join(', ')}` : '') +
+      (feesColumnStillMapped ? '' : ' — FEES COLUMN MAPPING LOST'));
   }
 
   /* T10-03 — the full pipeline with the network stubbed to throw. */

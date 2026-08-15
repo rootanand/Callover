@@ -5145,7 +5145,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
     bd.appendChild(el('div', { class: 'safe' },
       el('span', { class: 'ic', text: '●' }),
       el('span', {}, 'This is the file that matters. It holds ',
-        el('b', { text: 'client names, phone numbers and fee entries' }),
+        el('b', { text: 'client names, case numbers and phone numbers' }),
         '. It is opened inside your browser and never transmitted, never cached on any server, never seen by anyone but you.')));
 
     return stepBox(2, 'Your case register', 'OPTIONAL — BUT IT CHANGES EVERYTHING', bd);
@@ -5920,7 +5920,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
 
     return el('div', { class: 'privacy' }, el('div', { class: 'in' },
       el('div', { class: 'claim' }, lock, 'Nothing you open here leaves this device.'),
-      el('p', { class: 'sub', text: 'Your case register carries client names, phone numbers and fee entries. Callover reads it inside your browser and sends it nowhere — because there is nowhere for it to be sent.' }),
+      el('p', { class: 'sub', text: 'Your case register carries client names, case numbers and phone numbers. Callover reads it inside your browser and sends it nowhere — because there is nowhere for it to be sent.' }),
       el('div', { class: 'specs' },
         spec('No upload', 'The PDFs and your register are opened by the browser itself, the way a document opens on your desk. No copy is transmitted.'),
         spec('No account', 'No sign-in, no email address, no licence key. Nobody — including us — has any record that you used it.'),

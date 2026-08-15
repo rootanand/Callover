@@ -58,7 +58,7 @@ sends juniors to matters that will not be called. See
 
 ## Nothing you open leaves your device
 
-Your case register carries client names, phone numbers and fee entries. Callover reads
+Your case register carries client names, case numbers and phone numbers. Callover reads
 it inside your browser and sends it nowhere — because there is nowhere for it to be sent.
 
 - **No upload.** Files are opened by the browser itself. No copy is transmitted.
