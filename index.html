@@ -925,7 +925,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   /* ---------------------------------------------------------------- §4.1
      Titles and role words are stripped before a name is compared. */
-  CO.TITLE_RE = /\b(M\/S|MS|MR|MRS|MISS|THIRU|TMT|SELVI|SHRI|SRI|SMT|DR|ADV|ADVOCATE|LEARNED|COUNSEL|SENIOR|SR|PROF)\b/g;
+  CO.TITLE_RE = /\b(M\/S|MESSRS|MS|MR|MRS|MISS|THIRU|TMT|SELVI|SHRI|SRI|SMT|DR|ADV|ADVOCATE|LEARNED|COUNSEL|SENIOR|SR|PROF)\b/g;
+
+  /* An opener that is BOTH a salutation and a plausible set of initials.
+
+     "MR.ELAVARASAN" may be Mr. Elavarasan, or it may be M.R. Elavarasan with
+     the dots dropped — and a registry does both. Read only as a salutation,
+     the initials are thrown away and a firm's own M.R. Elavarasan falls from a
+     certain match to a question.
+
+     So the name is read BOTH ways and the better reading wins (§4.4). That can
+     only ever help: the initials reading wins only when the firm advocate's
+     initials really are those letters, so an unrelated name cannot be lifted by
+     it. Every one of these is two or three letters — longer salutations like
+     THIRU are never plausible initials and are not listed. */
+  CO.AMBIGUOUS_OPENER = /^(MR|MS|DR|SR|MRS)\.?\s*(?=[A-Z])/;
   CO.ROLE_RE  = /\b(FOR|APPEARING|ON BEHALF OF|TAKES NOTICE|ACCEPTS NOTICE|GP|SPP|SGP|AGP|PP|SC|ASG|AAG|GOVERNMENT PLEADER|PUBLIC PROSECUTOR|STANDING COUNSEL|AMICUS|CURIAE|PARTY IN PERSON|PIP)\b/g;
 
   /* Structural words that separate or enumerate PARTIES. They are punctuation
@@ -1451,6 +1465,29 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
     };
   }
 
+  /* Every way a name might reasonably be read — normally one, but two when it
+     opens with something that is both a salutation and a plausible pair of
+     initials (§4.4, CO.AMBIGUOUS_OPENER).
+
+     The check is deliberately cheap and the common path allocates nothing
+     extra: measured across the four real HR&CE lists, exactly ONE extracted
+     name in 364 opens with an undotted letter pair, against 61 that use proper
+     dotted initials. Scoring every name twice to serve that one would be a
+     poor trade on a 642-page list. */
+  function nameVariants(raw) {
+    const primary = splitName(raw);
+    const s = upperClean(raw).replace(/^M\/S\.?\s*/, '').trim();
+    const m = s.match(CO.AMBIGUOUS_OPENER);
+    if (!m) return [primary];
+
+    /* Re-read the opener as initials by restoring the dots the registry
+       dropped: MR.ELAVARASAN -> M.R.ELAVARASAN. */
+    const rest = s.slice(m[0].length);
+    const asInitials = splitName(m[1].split('').join('.') + '.' + rest);
+    if (!asInitials.core.length) return [primary];
+    return [primary, asInitials];
+  }
+
   /* Tamil / Indic transliteration skeleton.
 
      GANESH -> GNS, GANESAN -> GNSN, KRISHNAMURTHY -> KRSNMRT,
@@ -1621,6 +1658,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
   CO.stripDiacritics       = stripDiacritics;
   CO.upperClean            = upperClean;
   CO.splitName             = splitName;
+  CO.nameVariants          = nameVariants;
   CO.foldIndic             = foldIndic;
   CO.normCaseNo            = normCaseNo;
   CO.caseKeyFromParts      = caseKeyFromParts;
@@ -1883,9 +1921,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
 
   /* Score one firm advocate against one printed string.
      Returns null when either side has no core name to compare — a cell reading
-     only "FOR R13" or "PARTY IN PERSON" is not a name and must not be scored. */
+     only "FOR R13" or "PARTY IN PERSON" is not a name and must not be scored.
+
+     Where either side opens with something that is both a salutation and a
+     plausible pair of initials — "MR.ELAVARASAN" — both readings are scored and
+     the better one is returned (§4.4, CO.AMBIGUOUS_OPENER). Another pure
+     Math.max, so no score can fall; and because the initials reading can only
+     win when the firm advocate's initials really are those letters, it lifts
+     the firm's own M.R. Elavarasan from a question to a certainty without
+     lifting anybody else. */
   function nameScore(query, candidate) {
-    const q = CO.splitName(query), c = CO.splitName(candidate);
+    const qs = CO.nameVariants(query), cs = CO.nameVariants(candidate);
+    if (qs.length === 1 && cs.length === 1) return scorePair(qs[0], cs[0]);
+    let best = null;
+    for (const q of qs) for (const c of cs) {
+      const s = scorePair(q, c);
+      if (s && (!best || s.combined > best.combined)) best = s;
+    }
+    return best;
+  }
+
+  function scorePair(q, c) {
     if (!q.core.length || !c.core.length) return null;
 
     const qCoreStr = q.core.join(' '), cCoreStr = c.core.join(' ');

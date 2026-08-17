@@ -7,9 +7,27 @@
 
   /* Score one firm advocate against one printed string.
      Returns null when either side has no core name to compare — a cell reading
-     only "FOR R13" or "PARTY IN PERSON" is not a name and must not be scored. */
+     only "FOR R13" or "PARTY IN PERSON" is not a name and must not be scored.
+
+     Where either side opens with something that is both a salutation and a
+     plausible pair of initials — "MR.ELAVARASAN" — both readings are scored and
+     the better one is returned (§4.4, CO.AMBIGUOUS_OPENER). Another pure
+     Math.max, so no score can fall; and because the initials reading can only
+     win when the firm advocate's initials really are those letters, it lifts
+     the firm's own M.R. Elavarasan from a question to a certainty without
+     lifting anybody else. */
   function nameScore(query, candidate) {
-    const q = CO.splitName(query), c = CO.splitName(candidate);
+    const qs = CO.nameVariants(query), cs = CO.nameVariants(candidate);
+    if (qs.length === 1 && cs.length === 1) return scorePair(qs[0], cs[0]);
+    let best = null;
+    for (const q of qs) for (const c of cs) {
+      const s = scorePair(q, c);
+      if (s && (!best || s.combined > best.combined)) best = s;
+    }
+    return best;
+  }
+
+  function scorePair(q, c) {
     if (!q.core.length || !c.core.length) return null;
 
     const qCoreStr = q.core.join(' '), cCoreStr = c.core.join(' ');

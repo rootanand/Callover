@@ -32,7 +32,21 @@
 
   /* ---------------------------------------------------------------- §4.1
      Titles and role words are stripped before a name is compared. */
-  CO.TITLE_RE = /\b(M\/S|MS|MR|MRS|MISS|THIRU|TMT|SELVI|SHRI|SRI|SMT|DR|ADV|ADVOCATE|LEARNED|COUNSEL|SENIOR|SR|PROF)\b/g;
+  CO.TITLE_RE = /\b(M\/S|MESSRS|MS|MR|MRS|MISS|THIRU|TMT|SELVI|SHRI|SRI|SMT|DR|ADV|ADVOCATE|LEARNED|COUNSEL|SENIOR|SR|PROF)\b/g;
+
+  /* An opener that is BOTH a salutation and a plausible set of initials.
+
+     "MR.ELAVARASAN" may be Mr. Elavarasan, or it may be M.R. Elavarasan with
+     the dots dropped — and a registry does both. Read only as a salutation,
+     the initials are thrown away and a firm's own M.R. Elavarasan falls from a
+     certain match to a question.
+
+     So the name is read BOTH ways and the better reading wins (§4.4). That can
+     only ever help: the initials reading wins only when the firm advocate's
+     initials really are those letters, so an unrelated name cannot be lifted by
+     it. Every one of these is two or three letters — longer salutations like
+     THIRU are never plausible initials and are not listed. */
+  CO.AMBIGUOUS_OPENER = /^(MR|MS|DR|SR|MRS)\.?\s*(?=[A-Z])/;
   CO.ROLE_RE  = /\b(FOR|APPEARING|ON BEHALF OF|TAKES NOTICE|ACCEPTS NOTICE|GP|SPP|SGP|AGP|PP|SC|ASG|AAG|GOVERNMENT PLEADER|PUBLIC PROSECUTOR|STANDING COUNSEL|AMICUS|CURIAE|PARTY IN PERSON|PIP)\b/g;
 
   /* Structural words that separate or enumerate PARTIES. They are punctuation

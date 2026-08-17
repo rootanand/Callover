@@ -61,9 +61,11 @@ console.log(`\nCallover ${CO.VERSION} — TDD.md §10 test suite`);
          scores only.
      (c) the PARTY SEPARATOR strip — "against", "and others" and the like are
          punctuation, not names, and are removed before scoring.
+     (d) the AMBIGUOUS OPENER reading — "MR.ELAVARASAN" is scored both as a
+         salutation and as M.R. initials, better reading wins. Raises only.
 
-   (a) buys recall, (b) and (c) buy precision, and they pull in opposite
-   directions — so this group's job is to prove the set is exactly those three
+   (a) and (d) buy recall, (b) and (c) buy precision, and they pull in opposite
+   directions — so this group's job is to prove the set is exactly those four
    and that each only ever moves scores the way it is supposed to:
 
      T0-01  normalisation, range expansion and the distance primitives are
@@ -181,6 +183,10 @@ group('T0  the ported engine against the reference');
     return refHead !== newHead;
   };
 
+  /* Does the ambiguous-opener reading bear on this pair? It can only raise a
+     score, so it is exempt from the equality checks but not from T0-05. */
+  const variantApplies = (q, c) => CO.nameVariants(q).length > 1 || CO.nameVariants(c).length > 1;
+
   let pairs = 0, fell = [], changedSameOrder = [], nullness = [], classifyDiff = [];
   const precisionFalls = [];
   const rank = { none: 0, weak: 1, review: 2, auto: 3 };
@@ -193,14 +199,15 @@ group('T0  the ported engine against the reference');
     if (a === null) continue;
 
     const precision = precisionApplies(q, c);
+    const variant = variantApplies(q, c);
     if (a.combined + 1e-12 < b.combined) {
       const note = `${JSON.stringify(c)} for ${JSON.stringify(q)} ${b.combined.toFixed(3)} -> ${a.combined.toFixed(3)}`;
       if (precision) precisionFalls.push(note);
       else fell.push(note);
     }
-    if (!precision && sameOrder(q, c) && (!near(a.combined, b.combined) || !near(a.core, b.core)))
+    if (!precision && !variant && sameOrder(q, c) && (!near(a.combined, b.combined) || !near(a.core, b.core)))
       changedSameOrder.push(`${q}|${c} ${b.combined.toFixed(4)} -> ${a.combined.toFixed(4)}`);
-    if (a.initials.state !== b.initials.state) classifyDiff.push(`initials ${q}|${c}`);
+    if (!variant && a.initials.state !== b.initials.state) classifyDiff.push(`initials ${q}|${c}`);
 
     for (const ocr of [false, true]) {
       /* the classifier itself, fed the identical score object */
@@ -230,7 +237,7 @@ group('T0  the ported engine against the reference');
     (suspicious.length ? ` — REAL NAME PUSHED DOWN: ${suspicious.slice(0, 3).join('; ')}` : ''));
 
   t('T0-03', changedSameOrder.length === 0,
-    'scores are untouched where none of the three changes applies' +
+    'scores are untouched where none of the four changes applies' +
     (changedSameOrder.length ? ` — ${changedSameOrder.slice(0, 3).join('; ')}` : ''));
 
   t('T0-04', classifyDiff.length === 0,
@@ -1632,6 +1639,94 @@ E.R. Kannan,9840920003,E.R. Kannan -Vs- J.C. Chennai Division-2`));
   const bare = CO.io.parseAdvocateText('E. Ganesh\nV. Chandrasekar');
   t('T20-07', bare.advocates.length === 2 && bare.advocates.every(a => a.enrolment === null && a.role === null),
     'names alone are enough — enrolment and role stay null rather than blocking');
+}
+
+/* ==========================================================================
+   T21 — chambers prefixes, salutations, and when two letters are INITIALS.
+
+   M/S is how a firm in a person's name is written, and it appears constantly.
+   Salutations carry no information and must never block a match. But M.R, D.R
+   and M.S are INITIALS and carry a great deal — and a registry drops the dots,
+   so the same two letters can be either. Getting this right turns questions
+   into direct matches, which is the whole point.
+   ========================================================================== */
+group('T21  chambers prefixes, salutations and initials');
+{
+  const tier = (q, c) => tierOf(q, c);
+
+  /* A. M/S is a chambers marker, never part of the name. */
+  const ms = ['M/S.E.GANESH', 'M/s.E.Ganesh', 'M/S E.GANESH', 'M/S. E. GANESH', 'MS.E.GANESH',
+              'M/SE.GANESH', 'Messrs. E. Ganesh', 'M/S.E.GANESH & CO', 'FOR M/S.E.GANESH'];
+  const msBad = ms.filter(c => tier('E. Ganesh', c) !== 'auto');
+  t('T21-01', msBad.length === 0,
+    `${ms.length} ways of writing the chambers prefix all reach auto` +
+    (msBad.length ? ` — FAILED: ${msBad.map(c => `${c}=${tier('E. Ganesh', c)}`).join(', ')}` : ''));
+
+  /* B. Salutations are of no consequence and must not cost a tier. */
+  const sal = ['MR.E.GANESH', 'Mr. E. Ganesh', 'MR E.GANESH', 'THIRU E. GANESH', 'Thiru.E.Ganesh',
+               'SHRI E.GANESH', 'SRI.E.GANESH', 'DR.E.GANESH', 'Dr. E. Ganesh', 'TMT.E.GANESH',
+               'SELVI E.GANESH', 'SMT.E.GANESH', 'ADV.E.GANESH', 'ADVOCATE E.GANESH',
+               'MRS.E.GANESH', 'MISS E.GANESH', 'SELVI.E.GANESH', 'Tmt. E. Ganesh'];
+  const salBad = sal.filter(c => tier('E. Ganesh', c) !== 'auto');
+  t('T21-02', salBad.length === 0,
+    `${sal.length} salutations all still reach auto — none of them blocks a match` +
+    (salBad.length ? ` — FAILED: ${salBad.map(c => `${c}=${tier('E. Ganesh', c)}`).join(', ')}` : ''));
+
+  /* C. Dotted initials are initials, and always were. */
+  const dotted = [['M.R. Elavarasan', 'M.R.ELAVARASAN'], ['M.R. Elavarasan', 'M.R. ELAVARASAN'],
+                  ['M.R. Elavarasan', 'M R ELAVARASAN'], ['D.R. Karthik', 'D.R.KARTHIK'],
+                  ['S.R. Vasanth', 'S.R.VASANTH'], ['M.S. Subramaniam', 'M.S.SUBRAMANIAM']];
+  const dotBad = dotted.filter(([q, c]) => tier(q, c) !== 'auto');
+  t('T21-03', dotBad.length === 0,
+    `${dotted.length} dotted initial pairs are kept as initials and reach auto` +
+    (dotBad.length ? ` — FAILED: ${dotBad.map(([q, c]) => `${c}/${q}=${tier(q, c)}`).join(', ')}` : ''));
+
+  /* D. THE POINT — undotted MR / DR / MS read as initials when that is what
+     they turn out to be. Each of these was a question before. */
+  const undotted = [['M.R. Elavarasan', 'MR.ELAVARASAN'], ['M.R. Elavarasan', 'MR ELAVARASAN'],
+                    ['D.R. Karthik', 'DR.KARTHIK'], ['M.S. Subramaniam', 'MS.SUBRAMANIAM'],
+                    ['M.R. Ganesh', 'MR.GANESH'], ['S.R. Vasanth', 'SR.VASANTH']];
+  const undotBad = undotted.filter(([q, c]) => tier(q, c) !== 'auto');
+  t('T21-04', undotBad.length === 0,
+    `${undotted.length} UNDOTTED openers are read as initials when they match — ` +
+    'each of these was a confirmation before' +
+    (undotBad.length ? ` — FAILED: ${undotBad.map(([q, c]) => `${c}/${q}=${tier(q, c)}`).join(', ')}` : ''));
+
+  /* E. And the safety property that makes D free: the initials reading can
+     only win when the firm's initials really are those letters. A salutation
+     must never be promoted into somebody else's initial. */
+  const mustNotLift = [['E. Ganesh', 'MR.GANESH'], ['E. Ganesh', 'DR.GANESH'],
+                       ['E. Ganesh', 'MS.GANESH'], ['E. Ganesh', 'THIRU GANESH'],
+                       ['E. Ganesh', 'MR.GANESAN']];
+  const lifted = mustNotLift.filter(([q, c]) => tier(q, c) === 'auto');
+  t('T21-05', lifted.length === 0,
+    'a salutation is never mistaken for somebody else\'s initial — ' +
+    mustNotLift.map(([q, c]) => `${c}=${tier(q, c)}`).join(', ') +
+    (lifted.length ? ` — WRONGLY AUTO: ${lifted.map(([, c]) => c).join(', ')}` : ''));
+
+  /* F. Monotone: reading a name two ways can only ever raise its score. */
+  const probe = ['MR.ELAVARASAN', 'DR.KARTHIK', 'MS.SUBRAMANIAM', 'MR.GANESH', 'SR.VASANTH',
+                 'M.R.ELAVARASAN', 'E.GANESH', 'THIRU GANESH', 'M/S.E.GANESH'];
+  const firm = ['E. Ganesh', 'M.R. Elavarasan', 'D.R. Karthik', 'M.S. Subramaniam', 'S.R. Vasanth'];
+  let dropped = 0;
+  for (const q of firm) for (const c of probe) {
+    const both = CO.nameScore(q, c);
+    const single = (() => {   // the primary reading alone
+      const s = CO.nameScore(CO.splitName(q).initials.join('.') + '.' + CO.splitName(q).core.join(' '),
+                             CO.splitName(c).initials.join('.') + '.' + CO.splitName(c).core.join(' '));
+      return s;
+    })();
+    if (both && single && both.combined + 1e-12 < single.combined) dropped++;
+  }
+  t('T21-06', dropped === 0,
+    `over ${firm.length * probe.length} pairs the two-reading score never falls below the single reading`);
+
+  /* G. It must not cost speed: variants are only built when an opener is
+     genuinely ambiguous, which is rare. */
+  const plain = ['E.GANESH', 'M.R.ELAVARASAN', 'THIRU E. GANESH', 'M/S.E.GANESH', 'K.Jegan'];
+  t('T21-07', plain.every(s => CO.nameVariants(s).length === 1) &&
+              CO.nameVariants('MR.ELAVARASAN').length === 2,
+    'a second reading is built only for a genuinely ambiguous opener, not for every name');
 }
 
 /* ==========================================================================

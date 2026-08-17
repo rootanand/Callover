@@ -46,6 +46,29 @@
     };
   }
 
+  /* Every way a name might reasonably be read — normally one, but two when it
+     opens with something that is both a salutation and a plausible pair of
+     initials (§4.4, CO.AMBIGUOUS_OPENER).
+
+     The check is deliberately cheap and the common path allocates nothing
+     extra: measured across the four real HR&CE lists, exactly ONE extracted
+     name in 364 opens with an undotted letter pair, against 61 that use proper
+     dotted initials. Scoring every name twice to serve that one would be a
+     poor trade on a 642-page list. */
+  function nameVariants(raw) {
+    const primary = splitName(raw);
+    const s = upperClean(raw).replace(/^M\/S\.?\s*/, '').trim();
+    const m = s.match(CO.AMBIGUOUS_OPENER);
+    if (!m) return [primary];
+
+    /* Re-read the opener as initials by restoring the dots the registry
+       dropped: MR.ELAVARASAN -> M.R.ELAVARASAN. */
+    const rest = s.slice(m[0].length);
+    const asInitials = splitName(m[1].split('').join('.') + '.' + rest);
+    if (!asInitials.core.length) return [primary];
+    return [primary, asInitials];
+  }
+
   /* Tamil / Indic transliteration skeleton.
 
      GANESH -> GNS, GANESAN -> GNSN, KRISHNAMURTHY -> KRSNMRT,
@@ -216,6 +239,7 @@
   CO.stripDiacritics       = stripDiacritics;
   CO.upperClean            = upperClean;
   CO.splitName             = splitName;
+  CO.nameVariants          = nameVariants;
   CO.foldIndic             = foldIndic;
   CO.normCaseNo            = normCaseNo;
   CO.caseKeyFromParts      = caseKeyFromParts;
