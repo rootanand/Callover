@@ -937,9 +937,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
      So the name is read BOTH ways and the better reading wins (§4.4). That can
      only ever help: the initials reading wins only when the firm advocate's
      initials really are those letters, so an unrelated name cannot be lifted by
-     it. Every one of these is two or three letters — longer salutations like
-     THIRU are never plausible initials and are not listed. */
-  CO.AMBIGUOUS_OPENER = /^(MR|MS|DR|SR|MRS)\.?\s*(?=[A-Z])/;
+     it.
+
+     Two and three letters only. An advocate carries one, two or three
+     initials, so MRS can be M.R.S. and SMT can be S.M.T., but THIRU and
+     ADVOCATE are never anybody's initials and are not listed.
+
+     ORDERED LONGEST FIRST, and that is load-bearing rather than tidy.
+     Alternation in JavaScript takes the first branch that matches, so with MR
+     before MRS the opener of "MRS.KANNAN" would be read as M.R. and the name
+     left as "S.KANNAN" — a different person. T21-09 locks the ordering.
+
+     A SEPARATOR IS REQUIRED — a dot or a space. Without one the opener matches
+     inside ordinary words: ADV swallows the front of "ADVOCATE", leaving a
+     phantom advocate called OCATE, and SRI does the same to "SRIKANTH", which
+     is a real Tamil name and one of the firm's own. A prefix that has been
+     run into the following word is not a prefix, it is a coincidence. */
+  CO.AMBIGUOUS_OPENER = /^(MRS|SMT|ADV|SRI|TMT|MR|MS|DR|SR)[.\s]+(?=[A-Z])/;
   CO.ROLE_RE  = /\b(FOR|APPEARING|ON BEHALF OF|TAKES NOTICE|ACCEPTS NOTICE|GP|SPP|SGP|AGP|PP|SC|ASG|AAG|GOVERNMENT PLEADER|PUBLIC PROSECUTOR|STANDING COUNSEL|AMICUS|CURIAE|PARTY IN PERSON|PIP)\b/g;
 
   /* Structural words that separate or enumerate PARTIES. They are punctuation

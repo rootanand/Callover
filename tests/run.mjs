@@ -1727,6 +1727,104 @@ group('T21  chambers prefixes, salutations and initials');
   t('T21-07', plain.every(s => CO.nameVariants(s).length === 1) &&
               CO.nameVariants('MR.ELAVARASAN').length === 2,
     'a second reading is built only for a genuinely ambiguous opener, not for every name');
+
+  /* H. THREE-LETTER openers are initials too — an advocate carries one, two or
+     three of them. The alternation must be ordered longest-first or "MRS" is
+     read as "MR" and the name becomes a different person. */
+  const three = [['M.R.S. Kannan', 'MRS.KANNAN'], ['M.R.S. Kannan', 'MRS KANNAN'],
+                 ['S.M.T. Rajan', 'SMT.RAJAN'], ['A.D.V. Murugan', 'ADV.MURUGAN'],
+                 ['S.R.I. Kumar', 'SRI.KUMAR'], ['T.M.T. Lakshmi', 'TMT.LAKSHMI'],
+                 ['M.R.S. Kannan', 'M.R.S.KANNAN']];
+  const threeBad = three.filter(([q, c]) => tier(q, c) !== 'auto');
+  t('T21-08', threeBad.length === 0,
+    `${three.length} three-letter openers are read as initials when they match` +
+    (threeBad.length ? ` — FAILED: ${threeBad.map(([q, c]) => `${c}/${q}=${tier(q, c)}`).join(', ')}` : ''));
+
+  /* The ordering itself, asserted directly rather than only through outcomes. */
+  const mrsVariant = CO.nameVariants('MRS.KANNAN')[1];
+  t('T21-09', mrsVariant && mrsVariant.initials.join('') === 'MRS' &&
+              mrsVariant.core.join('') === 'KANNAN',
+    'the opener alternation is longest-first — MRS.KANNAN reads as M.R.S. Kannan, ' +
+    `not M.R. + "S.KANNAN" (got initials ${JSON.stringify(mrsVariant && mrsVariant.initials)}, ` +
+    `core ${JSON.stringify(mrsVariant && mrsVariant.core)})`);
+
+  /* And the safety property must survive the widening: a three-letter
+     salutation must not be lifted into somebody else's initials either. */
+  const wideLift = [['E. Ganesh', 'MRS.GANESH'], ['E. Ganesh', 'SMT.GANESH'],
+                    ['E. Ganesh', 'ADV.GANESH'], ['E. Ganesh', 'SRI.GANESH'],
+                    ['E. Ganesh', 'TMT.GANESH']].filter(([q, c]) => tier(q, c) === 'auto');
+  t('T21-10', wideLift.length === 0,
+    'widening to three letters lifts nobody it should not — ' +
+    ['MRS.GANESH', 'SMT.GANESH', 'ADV.GANESH', 'SRI.GANESH', 'TMT.GANESH']
+      .map(c => `${c}=${tier('E. Ganesh', c)}`).join(', '));
+
+  /* I. An opener run into the following word is not an opener. Without a
+     required separator, ADV eats the front of ADVOCATE and SRI eats the front
+     of SRIKANTH — which is one of the firm's own advocates. */
+  const glued = ['ADVOCATE E.GANESH', 'ADVOCATE NAME ILLEGIBLE', 'SRIKANTH', 'E.SRIKANTH',
+                 'SRIDHARAN', 'MSUBRAMANIAN', 'DRAVIDAN', 'SRINIVASAN', 'MRIDULA'];
+  const split = glued.filter(s => CO.nameVariants(s).length > 1);
+  t('T21-11', split.length === 0,
+    `${glued.length} words that merely begin with those letters are left alone — ` +
+    'a prefix run into the next word is a coincidence, not a prefix' +
+    (split.length ? ` — WRONGLY SPLIT: ${split.join(', ')}` : ''));
+
+  t('T21-12', tierOf('E. Srikanth', 'E.SRIKANTH') === 'auto' &&
+              tierOf('E. Srikanth', 'SRIKANTH') !== 'none',
+    'and SRIKANTH is still read as the name it is — E.SRIKANTH stays auto');
+}
+
+/* ==========================================================================
+   T22 — a recall floor on the real documents.
+
+   Several rounds of precision work in a row is exactly how a tool quietly
+   stops finding things. Under C4 a wrongly shown row costs a glance and a
+   wrongly dropped one costs an appearance, so the counsel matches on the real
+   HR&CE files are pinned here by name. Tightening anything must not move them.
+   ========================================================================== */
+group('T22  recall floor on the real files');
+{
+  const roster = loadRoster(CO, 'advocates-hrce.csv');
+  const reg = loadRegister(CO, 'cases-hrce.csv');
+  const docs = [];
+  for (const p of ['hrce/Causelistdated11_08_2026.pdf', 'hrce/Causelistdated04_08_2026.pdf',
+                   'hrce/AdjournmentNoticeNo_16.pdf'])
+    docs.push(await readPdf(CO, p, { roster }));
+  const run = CO.engine.run({ advocates: roster, register: reg.cases, documents: docs, date: '2026-08-11' });
+
+  /* Counsel found by name, at a tier the user will actually see. */
+  const counsel = run.matches.concat(run.adjourned)
+    .filter(m => m.matchRole === 'counsel' && CO.tierRank(m.tier) >= CO.tierRank('review'));
+  const keys = new Set(counsel.map(m => m.item.caseKeys[0]));
+
+  t('T22-01', counsel.length >= 20,
+    `${counsel.length} counsel matches at review or better across the three real files ` +
+    `(floor 20) — ${[...new Set(counsel.map(m => m.advocate.name))].join(', ')}`);
+
+  /* The specific matters a chamber would turn up for. Named so a regression
+     says WHICH one went missing, not merely that a count moved. */
+  const mustFind = ['RP/99/2026', 'OA/1/2024', 'RP/408/2023', 'RP/318/2025',
+                    'AP/25/2020', 'AP/26/2020', 'AP/77/2022', 'AP/9/2024',
+                    'AP/34/2026', 'MP/4/2026'];
+  const lost = mustFind.filter(k => !keys.has(k));
+  t('T22-02', lost.length === 0,
+    `${mustFind.length} known counsel matters all still found` +
+    (lost.length ? ` — LOST: ${lost.join(', ')}` : ''));
+
+  /* Every advocate on the roster must still be findable. A roster member who
+     silently stops matching anything is the failure C4 is about. */
+  const found = new Set(counsel.map(m => m.advocate.name));
+  const silent = roster.map(a => a.name).filter(n => !found.has(n));
+  t('T22-03', silent.length <= 1,
+    `${found.size} of ${roster.length} roster advocates still match something` +
+    (silent.length ? ` — silent: ${silent.join(', ')}` : ''));
+
+  /* And the range expansion that finds most tribunal work still fires. */
+  const expanded = run.matches.concat(run.adjourned)
+    .filter(m => (m.item.caseNumbers[0] || '').match(/\bto\b/i));
+  t('T22-04', expanded.length > 0,
+    `${expanded.length} match(es) still come from an expanded printed range ` +
+    `(e.g. ${expanded[0] ? expanded[0].item.caseNumbers[0] : '—'})`);
 }
 
 /* ==========================================================================
