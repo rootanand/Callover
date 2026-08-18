@@ -238,45 +238,58 @@
         tier = hit.tier;
       }
 
-      /* Case number and CNR are the firm's own identifiers; the firm knows them
-         exactly, so either one is decisive on its own. (Decision D6.)
+      /* MATTER-LEVEL EVIDENCE MAY NOT SETTLE A NAME-LEVEL QUESTION.
 
-         DECISIVE ABOUT THE MATTER, NOT ABOUT A NAME. A case number in the
-         register proves this is the firm's matter. It says nothing whatever
-         about WHICH of the firm's advocates a barely-scoring string refers to,
-         and promoting on it attributed three real matters to the wrong person:
+         The five signals answer two different questions, and conflating them
+         is the single mistake behind every wrong attribution found so far:
 
-           R.P.449/2024  "V. Sakthivel"  -> K. Sakthivel     register: E. Ganesh
-           R.P.538/2025  "Chandiramohan" -> V. Chandrasekar  register: E. Ganesh
-           A.P.32/2023   "Balamurugan"   -> A. Balaguru      register: E. Ganesh
+           MATTER-level — is this item the firm's matter?
+             caseNumber : this case number is in the firm's register
+             cnr        : this CNR is in the firm's register
+             partyName  : these parties match the firm's register entry
 
-         Each scores weak on the name alone. Each was being shown as a certain
-         appearance for an advocate who has nothing to do with it — and "By
-         advocate" is the view a clerk uses to decide who goes where, so this
-         sends the wrong junior to court.
+           NAME-level — is this printed string this advocate?
+             advocateName : how the string scores against the roster
+             enrolment    : this advocate's enrolment number is printed here
+             cluster      : other firm advocates are printed alongside (D7)
 
-         The matter is still caught, and still at auto: the case-number match
-         yields its own entry with no advocate attached (advocate = null, the
-         P19 path), or with whoever the register records. A weak name simply
-         does not get to ride on it. */
-      if (csig) {
-        signals.push(csig);
-        if (!hit || CO.tierRank(hit.tier) >= CO.tierRank('review')) tier = CO.maxTier(tier, 'auto');
-      }
-      /* A CNR identifies the matter exactly as a case number does, and is
-         held to the same rule for the same reason. */
-      if (nsig) {
-        signals.push(nsig);
-        if (!hit || CO.tierRank(hit.tier) >= CO.tierRank('review')) tier = CO.maxTier(tier, 'auto');
-      }
+         A case number in the register proves the matter is the firm's. It says
+         nothing whatever about WHICH of the firm's advocates a barely-scoring
+         string refers to. The same is true of a CNR, and of matching parties —
+         they are all facts about the MATTER.
 
+         Letting them promote a name attributed three real matters to the wrong
+         person, each of which the register records against E. Ganesh:
+
+           R.P.449/2024  "V. Sakthivel"  -> K. Sakthivel     name alone: weak
+           R.P.538/2025  "Chandiramohan" -> V. Chandrasekar  name alone: weak
+           A.P.32/2023   "Balamurugan"   -> A. Balaguru      name alone: weak
+
+         "By advocate" is the view a clerk uses to decide who goes where, so
+         the effect is sending the wrong junior to court.
+
+         So matter-level evidence sets the tier of the MATTER — the entry with
+         no advocate attached, the P19 path, or whoever the register records —
+         and lifts a NAME only where the name has already earned review on its
+         own. Nothing is lost by this: the matter is still caught, still at
+         auto, and the unearned attribution becomes a question instead of a
+         certainty. */
+      const nameEarnedIt = !hit || CO.tierRank(hit.tier) >= CO.tierRank('review');
+
+      if (csig) { signals.push(csig); if (nameEarnedIt) tier = CO.maxTier(tier, 'auto'); }
+      if (nsig) { signals.push(nsig); if (nameEarnedIt) tier = CO.maxTier(tier, 'auto'); }
+
+      /* Enrolment is NAME-level: an enrolment number identifies the person,
+         not the matter, so it settles the attribution on its own. */
       const esig = enrolmentSignal(item, advocate);
       if (esig) { signals.push(esig); tier = CO.maxTier(tier, 'auto'); }
 
       if (psig) {
         signals.push(psig);
-        if (tier === 'weak') tier = 'review';
-        else if (tier === 'review') tier = 'auto';
+        if (nameEarnedIt) {
+          if (tier === 'weak') tier = 'review';
+          else if (tier === 'review') tier = 'auto';
+        }
       }
       if (cluster && hit && hit.printed.matchRole === 'counsel') {
         signals.push(cluster);
@@ -306,6 +319,13 @@
       let capped = tier;
       if (hit && hit.printed.source === 'B' && hit.printed.matchRole === 'unplaced' && !csig && !nsig)
         capped = CO.capTier(capped, 'review');
+
+      /* A sweep hit that merely sits NEAR a matter rather than inside it is
+         not evidence about that matter — it belongs to a heading, a note, or a
+         row that yielded no matter of its own. Kept, because C4 forbids
+         dropping it, but held to the weak tier so it appears behind the toggle
+         instead of as a question about the wrong case. */
+      if (hit && hit.printed.nearOnly) capped = CO.capTier(capped, 'weak');
 
       /* A PARTY resembling one of the firm's advocates, on the name alone, is
          held to the weak tier.

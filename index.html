@@ -2601,7 +2601,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       return /\b(case|no|s\.?\s*no|serial|petitioner|respondent|advocate|temple|subject|section|sec)\b/i
         .test(row.map((_, i) => rowText(row, i)).join(' '));
     };
-    const dataRows = looksLikeHeading(table.cells[0]) ? table.cells.slice(1) : table.cells;
+    const headingRows = looksLikeHeading(table.cells[0]) ? 1 : 0;
+    const dataRows = table.cells.slice(headingRows);
 
     /* The registry numbers a matter once and then leaves the serial cell blank
        on the continuation rows beneath it — R.P.66/2022 carries "1." and
@@ -2656,6 +2657,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
         id: nextId('it'), sourceFile: file.name, sourceIsOfficial: !!file.official,
         page: page.index, court: ctx.court, hall: ctx.hall, coram: ctx.coram,
         listType: ctx.listType, itemNo: serial, itemNoInherited: serialInherited,
+        /* This row's OWN band, recorded here where it is known exactly.
+           It used to be reconstructed afterwards by asking which cells' text
+           appeared in the item's rawText — and a cell reading "-" or "21"
+           appears in nearly every row, so the range ballooned to the whole
+           table. Five items on one page all ended up spanning y 505..80, and
+           every sweep hit on the page was then attached to whichever came
+           first, presenting it as a question about the wrong matter. */
+        _yTop: table.rows[r + headingRows] ? table.rows[r + headingRows].top : null,
+        _yBot: table.rows[r + headingRows] ? table.rows[r + headingRows].bot : null,
         caseNumbers: [caseCell], caseKeys: exp.keys, cappedRanges: exp.capped,
         petitioner: '', respondent: '',
         counselPetitioner: [], counselRespondent: [],
@@ -2938,6 +2948,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       if (gap < bestGap) { bestGap = gap; best = it; }
     }
     return bestGap <= 40 ? best : null;
+  }
+
+  /* PROXIMITY IS NOT MEMBERSHIP.
+
+     A sweep hit that falls inside an item's own band is a finding about that
+     matter. One that merely sits NEAR the band is not — it belongs to a
+     header, a marginal note, or a row that produced no item — and presenting
+     it as a question about the neighbouring matter is misleading.
+
+     It is still kept, because C4 and D27 forbid dropping it. It is held to the
+     weak tier and told apart in the wording, so it appears behind the "show
+     weak matches" toggle rather than in the confirm queue. */
+  function isWithin(item, y) {
+    return !!item && item._yTop != null && y <= item._yTop + 1 && y >= item._yBot - 1;
   }
 
   /* The disagreement rate between the two passes is the most useful diagnostic
@@ -3607,12 +3631,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
         a = passA_columns(page, ctx, fileRec);
       }
 
-      /* Remember where each item sits so a sweep hit can be attached to it. */
+      /* Ruled-table items already carry their own row band, recorded where it
+         was known exactly (passA_table). Only fill in the rest. */
       for (const it of a.items) {
+        if (it._yTop != null) continue;
         const ys = [];
         for (const t of page.tables)
           for (const row of t.cells)
-            for (const cell of row) if (cell.text && it.rawText.includes(cell.text)) ys.push(cell.top, cell.bot);
+            for (const cell of row)
+              if (cell.text && cell.text.length >= 8 && it.rawText.includes(cell.text))
+                ys.push(cell.top, cell.bot);
         if (ys.length) { it._yTop = Math.max(...ys); it._yBot = Math.min(...ys); }
       }
 
@@ -3647,7 +3675,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
           name: h.printed, matchRole: 'unplaced', side: 'unknown', source: 'B',
           column: null, advocateId: h.advocate.id, advocateKey: advocateKey(h.advocate),
           tier: h.tier, score: h.score,
-          why: 'found on this page, but not in a column that carries advocate names — the layout may not have been read correctly'
+          nearOnly: !!host && !isWithin(host, h.y),
+          why: (!!host && !isWithin(host, h.y))
+            ? 'found on this page NEAR this matter but outside it — it belongs to a heading, a note, or a row that yielded no matter of its own'
+            : 'found on this page, but not in a column that carries advocate names — the layout may not have been read correctly'
         };
         if (host) {
           host.namesWithRole.push(entry);
@@ -3959,45 +3990,58 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
         tier = hit.tier;
       }
 
-      /* Case number and CNR are the firm's own identifiers; the firm knows them
-         exactly, so either one is decisive on its own. (Decision D6.)
+      /* MATTER-LEVEL EVIDENCE MAY NOT SETTLE A NAME-LEVEL QUESTION.
 
-         DECISIVE ABOUT THE MATTER, NOT ABOUT A NAME. A case number in the
-         register proves this is the firm's matter. It says nothing whatever
-         about WHICH of the firm's advocates a barely-scoring string refers to,
-         and promoting on it attributed three real matters to the wrong person:
+         The five signals answer two different questions, and conflating them
+         is the single mistake behind every wrong attribution found so far:
 
-           R.P.449/2024  "V. Sakthivel"  -> K. Sakthivel     register: E. Ganesh
-           R.P.538/2025  "Chandiramohan" -> V. Chandrasekar  register: E. Ganesh
-           A.P.32/2023   "Balamurugan"   -> A. Balaguru      register: E. Ganesh
+           MATTER-level — is this item the firm's matter?
+             caseNumber : this case number is in the firm's register
+             cnr        : this CNR is in the firm's register
+             partyName  : these parties match the firm's register entry
 
-         Each scores weak on the name alone. Each was being shown as a certain
-         appearance for an advocate who has nothing to do with it — and "By
-         advocate" is the view a clerk uses to decide who goes where, so this
-         sends the wrong junior to court.
+           NAME-level — is this printed string this advocate?
+             advocateName : how the string scores against the roster
+             enrolment    : this advocate's enrolment number is printed here
+             cluster      : other firm advocates are printed alongside (D7)
 
-         The matter is still caught, and still at auto: the case-number match
-         yields its own entry with no advocate attached (advocate = null, the
-         P19 path), or with whoever the register records. A weak name simply
-         does not get to ride on it. */
-      if (csig) {
-        signals.push(csig);
-        if (!hit || CO.tierRank(hit.tier) >= CO.tierRank('review')) tier = CO.maxTier(tier, 'auto');
-      }
-      /* A CNR identifies the matter exactly as a case number does, and is
-         held to the same rule for the same reason. */
-      if (nsig) {
-        signals.push(nsig);
-        if (!hit || CO.tierRank(hit.tier) >= CO.tierRank('review')) tier = CO.maxTier(tier, 'auto');
-      }
+         A case number in the register proves the matter is the firm's. It says
+         nothing whatever about WHICH of the firm's advocates a barely-scoring
+         string refers to. The same is true of a CNR, and of matching parties —
+         they are all facts about the MATTER.
 
+         Letting them promote a name attributed three real matters to the wrong
+         person, each of which the register records against E. Ganesh:
+
+           R.P.449/2024  "V. Sakthivel"  -> K. Sakthivel     name alone: weak
+           R.P.538/2025  "Chandiramohan" -> V. Chandrasekar  name alone: weak
+           A.P.32/2023   "Balamurugan"   -> A. Balaguru      name alone: weak
+
+         "By advocate" is the view a clerk uses to decide who goes where, so
+         the effect is sending the wrong junior to court.
+
+         So matter-level evidence sets the tier of the MATTER — the entry with
+         no advocate attached, the P19 path, or whoever the register records —
+         and lifts a NAME only where the name has already earned review on its
+         own. Nothing is lost by this: the matter is still caught, still at
+         auto, and the unearned attribution becomes a question instead of a
+         certainty. */
+      const nameEarnedIt = !hit || CO.tierRank(hit.tier) >= CO.tierRank('review');
+
+      if (csig) { signals.push(csig); if (nameEarnedIt) tier = CO.maxTier(tier, 'auto'); }
+      if (nsig) { signals.push(nsig); if (nameEarnedIt) tier = CO.maxTier(tier, 'auto'); }
+
+      /* Enrolment is NAME-level: an enrolment number identifies the person,
+         not the matter, so it settles the attribution on its own. */
       const esig = enrolmentSignal(item, advocate);
       if (esig) { signals.push(esig); tier = CO.maxTier(tier, 'auto'); }
 
       if (psig) {
         signals.push(psig);
-        if (tier === 'weak') tier = 'review';
-        else if (tier === 'review') tier = 'auto';
+        if (nameEarnedIt) {
+          if (tier === 'weak') tier = 'review';
+          else if (tier === 'review') tier = 'auto';
+        }
       }
       if (cluster && hit && hit.printed.matchRole === 'counsel') {
         signals.push(cluster);
@@ -4027,6 +4071,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       let capped = tier;
       if (hit && hit.printed.source === 'B' && hit.printed.matchRole === 'unplaced' && !csig && !nsig)
         capped = CO.capTier(capped, 'review');
+
+      /* A sweep hit that merely sits NEAR a matter rather than inside it is
+         not evidence about that matter — it belongs to a heading, a note, or a
+         row that yielded no matter of its own. Kept, because C4 forbids
+         dropping it, but held to the weak tier so it appears behind the toggle
+         instead of as a question about the wrong case. */
+      if (hit && hit.printed.nearOnly) capped = CO.capTier(capped, 'weak');
 
       /* A PARTY resembling one of the firm's advocates, on the name alone, is
          held to the weak tier.

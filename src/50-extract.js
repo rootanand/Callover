@@ -488,7 +488,8 @@
       return /\b(case|no|s\.?\s*no|serial|petitioner|respondent|advocate|temple|subject|section|sec)\b/i
         .test(row.map((_, i) => rowText(row, i)).join(' '));
     };
-    const dataRows = looksLikeHeading(table.cells[0]) ? table.cells.slice(1) : table.cells;
+    const headingRows = looksLikeHeading(table.cells[0]) ? 1 : 0;
+    const dataRows = table.cells.slice(headingRows);
 
     /* The registry numbers a matter once and then leaves the serial cell blank
        on the continuation rows beneath it — R.P.66/2022 carries "1." and
@@ -543,6 +544,15 @@
         id: nextId('it'), sourceFile: file.name, sourceIsOfficial: !!file.official,
         page: page.index, court: ctx.court, hall: ctx.hall, coram: ctx.coram,
         listType: ctx.listType, itemNo: serial, itemNoInherited: serialInherited,
+        /* This row's OWN band, recorded here where it is known exactly.
+           It used to be reconstructed afterwards by asking which cells' text
+           appeared in the item's rawText — and a cell reading "-" or "21"
+           appears in nearly every row, so the range ballooned to the whole
+           table. Five items on one page all ended up spanning y 505..80, and
+           every sweep hit on the page was then attached to whichever came
+           first, presenting it as a question about the wrong matter. */
+        _yTop: table.rows[r + headingRows] ? table.rows[r + headingRows].top : null,
+        _yBot: table.rows[r + headingRows] ? table.rows[r + headingRows].bot : null,
         caseNumbers: [caseCell], caseKeys: exp.keys, cappedRanges: exp.capped,
         petitioner: '', respondent: '',
         counselPetitioner: [], counselRespondent: [],
@@ -825,6 +835,20 @@
       if (gap < bestGap) { bestGap = gap; best = it; }
     }
     return bestGap <= 40 ? best : null;
+  }
+
+  /* PROXIMITY IS NOT MEMBERSHIP.
+
+     A sweep hit that falls inside an item's own band is a finding about that
+     matter. One that merely sits NEAR the band is not — it belongs to a
+     header, a marginal note, or a row that produced no item — and presenting
+     it as a question about the neighbouring matter is misleading.
+
+     It is still kept, because C4 and D27 forbid dropping it. It is held to the
+     weak tier and told apart in the wording, so it appears behind the "show
+     weak matches" toggle rather than in the confirm queue. */
+  function isWithin(item, y) {
+    return !!item && item._yTop != null && y <= item._yTop + 1 && y >= item._yBot - 1;
   }
 
   /* The disagreement rate between the two passes is the most useful diagnostic
@@ -1494,12 +1518,16 @@
         a = passA_columns(page, ctx, fileRec);
       }
 
-      /* Remember where each item sits so a sweep hit can be attached to it. */
+      /* Ruled-table items already carry their own row band, recorded where it
+         was known exactly (passA_table). Only fill in the rest. */
       for (const it of a.items) {
+        if (it._yTop != null) continue;
         const ys = [];
         for (const t of page.tables)
           for (const row of t.cells)
-            for (const cell of row) if (cell.text && it.rawText.includes(cell.text)) ys.push(cell.top, cell.bot);
+            for (const cell of row)
+              if (cell.text && cell.text.length >= 8 && it.rawText.includes(cell.text))
+                ys.push(cell.top, cell.bot);
         if (ys.length) { it._yTop = Math.max(...ys); it._yBot = Math.min(...ys); }
       }
 
@@ -1534,7 +1562,10 @@
           name: h.printed, matchRole: 'unplaced', side: 'unknown', source: 'B',
           column: null, advocateId: h.advocate.id, advocateKey: advocateKey(h.advocate),
           tier: h.tier, score: h.score,
-          why: 'found on this page, but not in a column that carries advocate names — the layout may not have been read correctly'
+          nearOnly: !!host && !isWithin(host, h.y),
+          why: (!!host && !isWithin(host, h.y))
+            ? 'found on this page NEAR this matter but outside it — it belongs to a heading, a note, or a row that yielded no matter of its own'
+            : 'found on this page, but not in a column that carries advocate names — the layout may not have been read correctly'
         };
         if (host) {
           host.namesWithRole.push(entry);

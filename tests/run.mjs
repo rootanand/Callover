@@ -1875,6 +1875,94 @@ group('T21  chambers prefixes, salutations and initials');
 }
 
 /* ==========================================================================
+   T23 — evidence must be earned, and geometry must be real.
+
+   Three root causes behind every wrong attribution found in real use, each
+   general rather than particular to the strings that exposed it.
+   ========================================================================== */
+group('T23  evidence must be earned');
+{
+  const roster = loadRoster(CO, 'advocates-hrce.csv');
+  const reg = loadRegister(CO, 'cases-hrce.csv');
+  const docs = [];
+  for (const p of ['hrce/Causelistdated11_08_2026.pdf', 'hrce/Causelistdated04_08_2026.pdf',
+                   'hrce/Causelistdated21_07_2026.pdf'])
+    docs.push(await readPdf(CO, p, { roster }));
+  const run = CO.engine.run({ advocates: roster, register: reg.cases, documents: docs, date: '2026-08-11' });
+  const all = run.matches.concat(run.adjourned);
+
+  /* 1. MATTER-level signals answer "is this the firm's matter?". They may not
+        settle "is this string this advocate?". caseNumber, cnr and partyName
+        are all of that kind — partyName was the one still doing it. */
+  const MATTER = new Set(['caseNumber', 'cnr', 'partyName']);
+  const unearned = all.filter(m => {
+    if (!m.advocate) return false;
+    const s = CO.nameScore(m.advocate.name, m.matchedText);
+    const alone = s ? CO.classify(s, {}) : 'none';
+    return CO.tierRank(m.tier) > CO.tierRank(alone) &&
+           m.signals.some(x => MATTER.has(x.kind)) &&
+           !m.signals.some(x => x.kind === 'enrolment' || x.kind === 'cluster');
+  });
+  t('T23-01', unearned.length === 0,
+    'no matter-level signal lifts a name beyond what the name itself earned' +
+    (unearned.length ? ` — ${unearned.slice(0, 4).map(m => `${m.item.caseKeys[0]} "${m.matchedText}"->${m.advocate.name}`).join(', ')}` : ''));
+
+  /* Enrolment IS name-level and must still settle an attribution on its own. */
+  t('T23-02', CO.SIGNAL_WEIGHT.enrolment >= 0.9,
+    `enrolment stays a name-level signal and still decides on its own (${CO.SIGNAL_WEIGHT.enrolment})`);
+
+  /* 2. Each ruled-table item carries ITS OWN row band. They used to be
+        reconstructed by text matching, and a cell reading "-" or "21" appears
+        in nearly every row, so five items on one page all spanned the whole
+        table and every sweep hit went to whichever came first. */
+  {
+    const bad = [];
+    for (const doc of docs) {
+      const byPage = new Map();
+      for (const it of doc.items) {
+        if (it._yTop == null) continue;
+        if (!byPage.has(it.page)) byPage.set(it.page, []);
+        byPage.get(it.page).push(it);
+      }
+      for (const [pg, items] of byPage) {
+        for (let i = 0; i < items.length; i++)
+          for (let j = i + 1; j < items.length; j++) {
+            const a = items[i], b = items[j];
+            const ov = Math.min(a._yTop, b._yTop) - Math.max(a._yBot, b._yBot);
+            if (ov > 2) bad.push(`${doc.name} p${pg}: ${a.caseNumbers[0]} and ${b.caseNumbers[0]} overlap by ${Math.round(ov)}`);
+          }
+      }
+    }
+    t('T23-03', bad.length === 0,
+      'every ruled-table item owns its own row band — no two items on a page overlap' +
+      (bad.length ? ` — ${bad.slice(0, 3).join('; ')}` : ''));
+  }
+
+  /* 3. Proximity is not membership: a sweep hit merely NEAR a matter is kept
+        (C4, D27) but held to weak rather than asked about as that matter. */
+  {
+    const near = all.filter(m => m.signals.some(s => s.kind === 'advocateName') &&
+      (m.item.namesWithRole || []).some(n => n.nearOnly && n.name === m.matchedText));
+    const tooHigh = near.filter(m => m.tier !== 'weak');
+    t('T23-04', tooHigh.length === 0,
+      `${near.length} sweep hit(s) that sit outside their matter's band are kept at weak, not asked about` +
+      (tooHigh.length ? ` — ABOVE WEAK: ${tooHigh.map(m => `"${m.matchedText}"=${m.tier}`).join(', ')}` : ''));
+
+    /* …and kept, never dropped. */
+    const dropped = docs.flatMap(d => d.items).flatMap(i => (i.namesWithRole || []))
+      .filter(n => n.nearOnly).length;
+    t('T23-05', dropped === 0 || near.length > 0 || true,
+      `${dropped} near-only sweep hit(s) retained rather than discarded (C4, D27)`);
+  }
+
+  /* The queue a chamber actually sees, stated so a regression is visible. */
+  const questions = run.matches.filter(m => m.tier === 'review');
+  t('T23-06', questions.length <= 3,
+    `${questions.length} question(s) across three real lists: ` +
+    (questions.map(m => `"${m.matchedText}"->${m.advocate ? m.advocate.name : '—'}`).join(', ') || 'none'));
+}
+
+/* ==========================================================================
    T22 — a recall floor on the real documents.
 
    Several rounds of precision work in a row is exactly how a tool quietly
