@@ -1458,6 +1458,38 @@ group('T18  a party is not corroborating evidence');
   t('T18-06', clustered.length >= 2 && clustered.every(m => m.matchRole === 'counsel'),
     `the cluster still promotes counsel — P01 has ${clustered.length} clustered counsel matches`);
 
+  /* ---- a case number identifies the MATTER, not a NAME ----
+
+     A case number in the register proves the matter is the firm's. It says
+     nothing about which of the firm's advocates a barely-scoring string refers
+     to. Promoting on it attributed three real matters to the wrong person —
+     "V. Sakthivel" to K. Sakthivel, "Chandiramohan" to V. Chandrasekar,
+     "Balamurugan" to A. Balaguru — each of which the register records against
+     E. Ganesh. "By advocate" is the view a clerk uses to decide who goes
+     where, so that sends the wrong junior to court. */
+  {
+    const HARD = new Set(['caseNumber', 'cnr']);
+    const carried = run.matches.concat(run.adjourned).filter(m => {
+      if (m.tier !== 'auto' || !m.advocate) return false;
+      if (!m.signals.some(s => HARD.has(s.kind))) return false;
+      const s = CO.nameScore(m.advocate.name, m.matchedText);
+      const alone = s ? CO.classify(s, {}) : 'none';
+      return alone !== 'auto' && alone !== 'review';
+    });
+    t('T18-11', carried.length === 0,
+      'a case number never carries a weak name to a certain attribution' +
+      (carried.length ? ` — ${carried.map(m => `${m.item.caseKeys[0]} "${m.matchedText}"->${m.advocate.name}`).join(', ')}` : ''));
+
+    /* …and the matters themselves are still caught, which is the half that
+       must not be lost in fixing the other half. */
+    const caught = k => run.matches.concat(run.adjourned)
+      .some(m => m.item.caseKeys.includes(k) && m.tier === 'auto');
+    const missing = ['RP/449/2024', 'RP/538/2025', 'AP/32/2023'].filter(k => !caught(k));
+    t('T18-12', missing.length === 0,
+      'and every one of those matters is still caught at auto, on its case number' +
+      (missing.length ? ` — LOST: ${missing.join(', ')}` : ''));
+  }
+
   /* ---- the "against" class: ordinary words are not candidate names ----
 
      Reported: "Is against your E. Ganesh?" was the top weak entry. Two causes,

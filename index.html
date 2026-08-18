@@ -3960,9 +3960,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
       }
 
       /* Case number and CNR are the firm's own identifiers; the firm knows them
-         exactly, so either one is decisive on its own. (Decision D6.) */
-      if (csig) { signals.push(csig); tier = CO.maxTier(tier, 'auto'); }
-      if (nsig) { signals.push(nsig); tier = CO.maxTier(tier, 'auto'); }
+         exactly, so either one is decisive on its own. (Decision D6.)
+
+         DECISIVE ABOUT THE MATTER, NOT ABOUT A NAME. A case number in the
+         register proves this is the firm's matter. It says nothing whatever
+         about WHICH of the firm's advocates a barely-scoring string refers to,
+         and promoting on it attributed three real matters to the wrong person:
+
+           R.P.449/2024  "V. Sakthivel"  -> K. Sakthivel     register: E. Ganesh
+           R.P.538/2025  "Chandiramohan" -> V. Chandrasekar  register: E. Ganesh
+           A.P.32/2023   "Balamurugan"   -> A. Balaguru      register: E. Ganesh
+
+         Each scores weak on the name alone. Each was being shown as a certain
+         appearance for an advocate who has nothing to do with it — and "By
+         advocate" is the view a clerk uses to decide who goes where, so this
+         sends the wrong junior to court.
+
+         The matter is still caught, and still at auto: the case-number match
+         yields its own entry with no advocate attached (advocate = null, the
+         P19 path), or with whoever the register records. A weak name simply
+         does not get to ride on it. */
+      if (csig) {
+        signals.push(csig);
+        if (!hit || CO.tierRank(hit.tier) >= CO.tierRank('review')) tier = CO.maxTier(tier, 'auto');
+      }
+      /* A CNR identifies the matter exactly as a case number does, and is
+         held to the same rule for the same reason. */
+      if (nsig) {
+        signals.push(nsig);
+        if (!hit || CO.tierRank(hit.tier) >= CO.tierRank('review')) tier = CO.maxTier(tier, 'auto');
+      }
 
       const esig = enrolmentSignal(item, advocate);
       if (esig) { signals.push(esig); tier = CO.maxTier(tier, 'auto'); }
