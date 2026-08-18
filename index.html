@@ -2576,7 +2576,32 @@ if (typeof module !== 'undefined' && module.exports) module.exports = globalThis
     const isAdjournTable = roles.some(r => r.name === 'repostedTo') ||
       /reposted/i.test(headerTextOf(table));
 
-    const dataRows = table.cells.slice(headerRowCount(table));
+    /* WHICH ROW IS THE HEADING — asked of the content, never assumed.
+
+       A long list runs over many pages and the column headings are printed
+       once, on the first. Every continuation page opens straight into a
+       matter. Dropping row 0 regardless therefore threw away the FIRST MATTER
+       ON EVERY PAGE AFTER THE FIRST — silently, since the row was read
+       perfectly and then discarded. Found on a real 12-page list where
+       "R.P.122/2023 L.Purusothamman through M/s.E.Ganesh" was the top row of
+       page 3 and simply never appeared.
+
+       A heading has no case number in its case-number cell. That is the whole
+       test, and it is the one thing that cannot be true of a real row. */
+    const iCaseCol = roles.map((x, i) => x.role === 'caseNumber' ? i : -1).filter(i => i >= 0)[0];
+    const rowText = (row, c) => {
+      const cell = row[c];
+      return cell ? (cell.owner === cell ? cell.text : cell.owner.text) : '';
+    };
+    const looksLikeHeading = row => {
+      if (!row) return false;
+      if (iCaseCol == null) return false;
+      const c = rowText(row, iCaseCol);
+      if (/\d/.test(c)) return false;              // carries a number: it is a matter
+      return /\b(case|no|s\.?\s*no|serial|petitioner|respondent|advocate|temple|subject|section|sec)\b/i
+        .test(row.map((_, i) => rowText(row, i)).join(' '));
+    };
+    const dataRows = looksLikeHeading(table.cells[0]) ? table.cells.slice(1) : table.cells;
 
     /* The registry numbers a matter once and then leaves the serial cell blank
        on the continuation rows beneath it — R.P.66/2022 carries "1." and

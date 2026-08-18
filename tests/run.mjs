@@ -773,12 +773,80 @@ group('T12  HR&CE tribunal documents');
   t('T12-06b', notice.reposted.every(r => r.dateConfidence === 'ruled'),
     'every notice row read its date from a ruled cell, none inferred');
 
+  /* H-11 — a matter in the notice but on no loaded cause list must still be
+     identified, from the register alone (§6.6 source 1).
+
+     Exercised by loading the NOTICE ON ITS OWN, which is the situation the
+     mechanism exists for. It used to be tested against the full run, where
+     RP/420/2025 happened to be missing from the cause list — but only because
+     the first row of every continuation page was being discarded as a header.
+     With that fixed the matter is found on the list itself, which is a better
+     answer and left the old assertion with nothing to see. A test should not
+     depend on a bug for its subject matter. */
+  {
+    const noticeOnlyRun = CO.engine.run({
+      advocates: roster, register: reg.cases, documents: [notice], date: '2026-08-11' });
+    const keys = (noticeOnlyRun.noticeOnly || []).map(n => n.caseKey);
+    const fromRegister = (noticeOnlyRun.noticeOnly || []).filter(n => n.identifiedFrom === 'register');
+    t('T12-07', keys.length > 0 && fromRegister.length > 0,
+      `H-11 — with no cause list loaded, ${keys.length} notice matter(s) are still identified, ` +
+      `${fromRegister.length} of them from the register alone (${fromRegister.map(n => n.caseKey).join(', ')})`);
+  }
+
+  /* And with the list loaded, that same matter is found on the list — the
+     stronger of the two paths (§6.6 source 2). */
   const noticeOnlyKeys = (run.noticeOnly || []).map(n => n.caseKey);
-  t('T12-07', noticeOnlyKeys.length > 0,
-    `H-11 — ${noticeOnlyKeys.length} notice-only matter(s) identified from the register alone: ${noticeOnlyKeys.join(', ')}`);
+  t('T12-07b', has('RP/420/2025'),
+    'RP/420/2025 is found on the cause list itself when one is loaded — it was ' +
+    'invisible only while the first row of each continuation page was being dropped');
 
   t('T12-08', !has('RP/192/2026') && !noticeOnlyKeys.includes('RP/192/2026'),
     'H-12 — a register matter not listed today appears nowhere');
+
+  /* A LIST RUNS OVER MANY PAGES AND THE HEADINGS ARE PRINTED ONCE.
+
+     Row 0 of every ruled table used to be discarded as a column heading, so
+     the first matter on every continuation page was read perfectly and then
+     thrown away. Reported on a real 12-page list where
+     "R.P.122/2023  L.Purusothamman through M/s.E.Ganesh" was the top row of a
+     page and never appeared at all.
+
+     Asserted structurally rather than by counting: every table row that
+     carries a case number must reach an item. */
+  {
+    /* A row reaches EITHER an item or, in the reposting table this file
+       appends after the list, a notice entry. Both count as read. */
+    const seen = new Set([
+      ...cl11.items.flatMap(i => i.caseNumbers),
+      ...(cl11.reposted || []).map(r => r.caseCellRaw)
+    ].map(n => String(n).replace(/\s+/g, '')));
+    const missed = [];
+    for (const page of cl11.pages)
+      for (const tbl of page.tables || []) {
+        for (const row of tbl.cells) {
+          const texts = row.map(c => (c ? (c.owner === c ? c.text : '') : ''));
+          /* The case-number cell STARTS with the number and is short. The
+             subject-matter cell also quotes an M.P. number, but in prose and
+             hundreds of characters long, so anchoring and a length bound tell
+             them apart. */
+          const caseCell = texts.find(x => x && x.length < 80 &&
+            /^\s*(?:[A-Z]\.?){1,4}\s*(?:Nos?\.?)?\s*\d{1,5}\b/i.test(x) && /\d{4}/.test(x) &&
+            !/\b(under|against|made|order|section|dated|petition)\b/i.test(x));
+          if (!caseCell) continue;
+          if (!seen.has(caseCell.replace(/\s+/g, ''))) missed.push(`p${page.index}: ${caseCell.slice(0, 40)}`);
+          break;                      // the topmost row is the one at risk
+        }
+      }
+    t('T12-18', missed.length === 0,
+      `the first row of every page's table reaches an item — no heading is assumed ` +
+      `(${cl11.pages.length} pages checked)` +
+      (missed.length ? ` — DROPPED: ${missed.slice(0, 4).join('; ')}` : ''));
+  }
+
+  /* A real heading must still be recognised, or the header row becomes a
+     phantom matter. Page 1 of this list carries one. */
+  t('T12-19', !cl11.items.some(i => /petitioner|advocate|subject|temple/i.test(i.caseNumbers.join(' '))),
+    'and a genuine heading row is still not mistaken for a matter');
 
   const repSection = cl11.reposted.length > 0;
   t('T12-09', repSection, `H-13 — the appended reposting table is its own section (${cl11.reposted.length} rows)`);
